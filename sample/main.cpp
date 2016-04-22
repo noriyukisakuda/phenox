@@ -29,7 +29,9 @@ THE SOFTWARE.
 #include <stdint.h>
 #include <errno.h>
 #include <sys/mman.h>
-#include <sys/time.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/un.h>
 #include <signal.h>
 #include <time.h>
 #include <sys/time.h>
@@ -42,62 +44,118 @@ THE SOFTWARE.
 #include "parameter.h"
 #include <iostream>
 #include <fstream>
+#include <turbojpeg.h>
 
 using namespace std;
 
-#define PI 3.14159265
+static void setup_timer();
 
 static char timer_disable = 0;
-
 static void *timer_handler(void *ptr);
 
 pthread_t timer_thread;
-static void setup_timer();
-static int ftnum = 0;
-const int ftmax = 200;
-const int timer_usec = 10000;
 
-const double RAD2DEG = 180 / PI;
-const double DEG2RAD = PI / 180;
+const px_cameraid cameraid = PX_FRONT_CAM;
+//const px_cameraid cameraid = PX_BOTTOM_CAM;
 
-const double msec = 1;
 
-const px_cameraid cameraid = PX_BOTTOM_CAM;
-
-double get_msec() {
+double get_time() {
     struct timeval  tv;
     gettimeofday(&tv, NULL);
 
-    return (tv.tv_sec) * 1000.0 + (tv.tv_usec) / 1000.0 ; 
+    return (tv.tv_sec) * 1000 + (tv.tv_usec) / 1000 ; 
 }
 
 int main(int argc, char **argv)
 {
+  int i,j,count;
+  count = 0;
+
+  int client_sockfd;
+  int len ;
+  struct sockaddr_un address;
+  int result ;
+  client_sockfd = socket(AF_UNIX,SOCK_STREAM,0);
+  address.sun_family = AF_UNIX ;
+  strcpy(address.sun_path , "/root/nodejs/projects/imgserver/mysocket");
+  len = sizeof(address);
+  result = connect(client_sockfd , (struct sockaddr *)&address , len);
+  if(result != 0) {exit(-1);}
+
+
   pxinit_chain();
-  set_parameter();
-   
+  set_parameter();   
   printf("CPU0:Start Initialization. Please do not move Phenox.\n");
   while(!pxget_cpu1ready());
   setup_timer();
   printf("CPU0:Finished Initialization.\n");
+  
+  CvMat *mat;
 
+  int param[]={CV_IMWRITE_JPEG_QUALITY,70};
+  IplImage *testImage;    
+  count = 0;
+
+  pxset_led(0,1); 
+  const int ftmax = 200;
   px_imgfeature *ft =(px_imgfeature *)calloc(ftmax,sizeof(px_imgfeature));
   int ftstate = 0;
 
-  while(1) {
-    if(ftstate == 0) {
-      if(pxset_imgfeature_query(cameraid) == 1)
-	ftstate = 1;
-    }
-    else if(ftstate == 1) {
-      int res = pxget_imgfeature(ft,ftmax);
-      if(res >= 0) {
-	ftnum = res;
-	ftstate = 0;      
+  long unsigned int buffer_size = 128000;
+  unsigned char compressed_buffer_memory[128000];
+  unsigned char *compressed_buffer = (unsigned char*)compressed_buffer_memory;
+  double delta, start_time;
+  delta = start_time = get_time();
+  int frames_count = 0;
+  double fps = 0.0;
+  double last_time = get_time();
+  while(1) {         
+    if(pxget_imgfullwcheck(cameraid,&testImage) == 1) {	
+      frames_count++;
+      if(ftstate == 1) {
+      	int ftnum = pxget_imgfeature(ft,ftmax);
+	      if(ftnum >= 0) {
+	        for(i = 0;i < ftnum;i++) {
+	          cvCircle(testImage,cvPoint((int)ft[i].pcx,(int)ft[i].pcy),2,CV_RGB(255,255,0),1,8,0);
+	          cvCircle(testImage,cvPoint((int)ft[i].cx,(int)ft[i].cy),2,CV_RGB(0,255,0),1,8,0);
+	          cvLine(testImage,cvPoint((int)ft[i].pcx,(int)ft[i].pcy),cvPoint((int)ft[i].cx,(int)ft[i].cy),CV_RGB(0,0,255),1,8,0);
+	        }
+	        ftstate = 0;
+	      }
       }
-    }
-    usleep(1000);
+      if(pxset_imgfeature_query(cameraid) == 1) {
+	      ftstate = 1;
+      }
+
+      tjhandle tj_compressor = tjInitCompress();
+      buffer_size = 128000;
+      unsigned char *buffer = (unsigned char*)testImage->imageData;
+
+      double encoding_time = get_time();
+      if (tjCompress2(tj_compressor, buffer, 320, 0, 240, TJPF_BGR,
+                &compressed_buffer, &buffer_size, TJSAMP_420, 30,
+                TJFLAG_NOREALLOC) == -1) {
+          printf("%s\n", tjGetErrorStr());
+      } else {
+          encoding_time = get_time() - encoding_time;
+          write(client_sockfd, compressed_buffer, buffer_size);
+          count++;
+      }
+      // if (count % 30 == 0)
+      //       printf("%f: Image encoded, index: %d size: %ld\n\t fps: %f delta: %f, encoding_time: %f\n", (get_time() - start_time)/1000.0,count++,buffer_size, fps, get_time() - delta, encoding_time);
+
+      tjDestroy(tj_compressor);
+      delta = get_time();
+
+      if (get_time() - last_time > 3000.0) {
+          fps = frames_count * 1000.0/(get_time() - last_time);
+          last_time = get_time();
+          frames_count = 0;
+      }
+    }             
   }
+  usleep(2000);
+
 }
 
 static void setup_timer() {
@@ -107,25 +165,25 @@ static void setup_timer() {
 }
 
 void *timer_handler(void *ptr) {
-    char c;  
-
     if(timer_disable == 1) {
         return NULL;
     }
-
     struct timespec _t;
     static struct timeval now, prev;
     double dt = 0;
-
-    while(1){
-        double _time_start = get_msec();
-        clock_gettime(CLOCK_REALTIME, &_t);
+    clock_gettime(CLOCK_REALTIME, &_t);
+    while(1) {
         pxset_keepalive();
         pxset_systemlog();
+        pxset_img_seq(cameraid);  
+
+        static unsigned long msec_cnt = 0;
+        msec_cnt++;
 
         gettimeofday(&now, NULL);
         dt = (now.tv_sec - prev.tv_sec) + 
                 (now.tv_usec - prev.tv_usec) * 1.0E-6;
+        cout << dt << endl;
         if(dt < 0){
             cout << "dt < 0" << endl;
             continue;
@@ -166,6 +224,9 @@ void *timer_handler(void *ptr) {
         static ofstream ofs_vision("output_vision");
             ofs_vision << st.vision_tx << "," << st.vision_ty << "," << ux << "," << uy << endl;
 
+        // if(!(msec_cnt % 30)){
+        //     printf("%.2f %.2f %.2f | %.2f %.2f %.2f | %.2f | \n",st.degx,st.degy,st.degz,st.vision_tx,st.vision_ty,st.vision_tz,st.height);
+        // } 
 
         static int hover_cnt = 0;
         if(pxget_operate_mode() == PX_UP){
@@ -205,9 +266,13 @@ void *timer_handler(void *ptr) {
             system("shutdown -h now\n");   
             exit(1);
         }
-        double _time_end = get_msec();
-        double sleep_time = msec - (_time_end - _time_start);
-        while((get_msec() - _time_start) < msec);
+
+        struct timespec remains;
+        _t.tv_nsec += 10000000;
+        clock_nanosleep(CLOCK_REALTIME, TIMER_ABSTIME, &_t, &remains);
+//        while (get_time() - t < 10.0) {
+//            usleep(500);
+//        }
+        clock_gettime(CLOCK_REALTIME, &_t);
     }
 }
-
