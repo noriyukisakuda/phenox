@@ -71,6 +71,7 @@ int main(int argc, char **argv)
   int i,j,count;
   count = 0;
 
+  /*
   int client_sockfd;
   int len ;
   struct sockaddr_un address;
@@ -81,6 +82,7 @@ int main(int argc, char **argv)
   len = sizeof(address);
   result = connect(client_sockfd , (struct sockaddr *)&address , len);
   if(result != 0) {exit(-1);}
+  */
 
 
   pxinit_chain();
@@ -127,6 +129,7 @@ int main(int argc, char **argv)
 	      ftstate = 1;
       }
 
+      /*
       tjhandle tj_compressor = tjInitCompress();
       buffer_size = 128000;
       unsigned char *buffer = (unsigned char*)testImage->imageData;
@@ -145,6 +148,7 @@ int main(int argc, char **argv)
       //       printf("%f: Image encoded, index: %d size: %ld\n\t fps: %f delta: %f, encoding_time: %f\n", (get_time() - start_time)/1000.0,count++,buffer_size, fps, get_time() - delta, encoding_time);
 
       tjDestroy(tj_compressor);
+      */
       delta = get_time();
 
       if (get_time() - last_time > 3000.0) {
@@ -172,6 +176,9 @@ void *timer_handler(void *ptr) {
     static struct timeval now, prev;
     double dt = 0;
     clock_gettime(CLOCK_REALTIME, &_t);
+
+    double ex_prev = 0;
+    double ey_prev = 0;
     while(1) {
         pxset_keepalive();
         pxset_systemlog();
@@ -191,23 +198,34 @@ void *timer_handler(void *ptr) {
         prev = now;
 
         // vision control
-        double setdegx, setdegy;
         px_selfstate st;
         pxget_selfstate(&st);
-        
-        double kpx = 0.05;
-        double kpy = 0.05;
-        double kdx = 0.3;
-        double kdy = 0.3;
-        double kix = 0.000003;
-        double kiy = 0.000003;
 
-        static double txi = 0;
-        static double tyi = 0;
-        txi += st.vision_tx;
-        tyi += st.vision_ty;
-        double uy = -kpx * st.vision_tx - kdx * st.vision_vx - kix * txi;
-        double ux = -kpy * st.vision_ty - kdy * st.vision_vy - kiy * tyi;
+        double rvx = 0;
+        double rvy = 0;
+        
+        double kpx = 0.;
+        double kpy = 0;
+        double kdx = 0;
+        double kdy = 0;
+        double kix = 0;
+        double kiy = 0;
+
+        double ex = rvx - st.vision_vx;
+        double ey = rvy - st.vision_vy;
+
+        static double exi = 0;
+        static double eyi = 0;
+        exi += ex*dt;
+        eyi += ey*dt;
+
+        double dex = (ex - ex_prev)/dt;
+        double dey = (ey - ey_prev)/dt;
+        ex_prev = ex;
+        ey_prev = ey;
+
+        double uy = kpx * ex + kdx * dex + kix * exi;
+        double ux = kpy * ey + kdy * dey + kiy * eyi;
         ux = -ux;
         if(fabs(ux) > 50){
             ux = 50 * ux / fabs(ux);
@@ -220,7 +238,7 @@ void *timer_handler(void *ptr) {
         static ofstream ofs_deg("output_deg");
             ofs_deg << st.degx << "," << st.degy << endl;
         static ofstream ofs_ctl("output_ctl");
-            ofs_ctl << setdegx << "," << setdegy << endl;
+            ofs_ctl << ux << "," << uy << endl;
         static ofstream ofs_vision("output_vision");
             ofs_vision << st.vision_tx << "," << st.vision_ty << "," << ux << "," << uy << endl;
 
@@ -231,8 +249,8 @@ void *timer_handler(void *ptr) {
         static int hover_cnt = 0;
         if(pxget_operate_mode() == PX_UP){
             pxset_visualselfposition(0, 0);
-            txi = 0;
-            tyi = 0;
+            exi = 0;
+            eyi = 0;
             hover_cnt = 0;
         }
 
@@ -241,8 +259,8 @@ void *timer_handler(void *ptr) {
                     hover_cnt++;
                 }
                 else{
-                    pxset_dst_degx(setdegx);
-                    pxset_dst_degy(setdegy);
+                    pxset_dst_degx(ux);
+                    pxset_dst_degy(uy);
                 }
         }
 
