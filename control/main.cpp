@@ -71,11 +71,11 @@ int main(int argc, char **argv)
   int i,j,count;
   count = 0;
 
-  /*
   int client_sockfd;
   int len ;
   struct sockaddr_un address;
   int result ;
+  /*
   client_sockfd = socket(AF_UNIX,SOCK_STREAM,0);
   address.sun_family = AF_UNIX ;
   strcpy(address.sun_path , "/root/nodejs/projects/imgserver/mysocket");
@@ -129,7 +129,6 @@ int main(int argc, char **argv)
 	      ftstate = 1;
       }
 
-      /*
       tjhandle tj_compressor = tjInitCompress();
       buffer_size = 128000;
       unsigned char *buffer = (unsigned char*)testImage->imageData;
@@ -148,7 +147,6 @@ int main(int argc, char **argv)
       //       printf("%f: Image encoded, index: %d size: %ld\n\t fps: %f delta: %f, encoding_time: %f\n", (get_time() - start_time)/1000.0,count++,buffer_size, fps, get_time() - delta, encoding_time);
 
       tjDestroy(tj_compressor);
-      */
       delta = get_time();
 
       if (get_time() - last_time > 3000.0) {
