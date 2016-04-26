@@ -8,7 +8,7 @@ Please write OpenCV code in main.
 
 ## Usage
 次のコマンドをmainを実行する前に実行してください。
-```
+```bash
 phenox# source /root/nodejs/nvm/nvm.sh/nvm.sh
 phenox# nvm use v0.11.14
 ```
@@ -20,5 +20,7 @@ phenox# nvm use v0.11.14
 
 `~/phenox/work/(your project name)/main`を追加して、
 
-`phenox# source run/mynodeimgserver.sh`
+```bash
+phenox# source run/mynodeimgserver.sh
+```
 で実行。
