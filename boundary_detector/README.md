@@ -2,7 +2,7 @@
 This is a test folder of boundary detector
 
 ##Install
-This class includes Eigen.
+This class uses Eigen.
 So you have to copy Eigen folder to `/usr/local/include`
 
 Eigen is available at [Eigen download](http://eigen.tuxfamily.org/index.php?title=Main_Page#Download)
