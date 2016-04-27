@@ -1,4 +1,4 @@
-# phenox sample code
+# Boundary Detector sample code
 This is a test folder of boundary detector
 
 ##Install
