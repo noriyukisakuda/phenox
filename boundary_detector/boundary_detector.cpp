@@ -18,6 +18,19 @@ BoundaryDetector::BoundaryDetector(){
     red_s_ = 60;
     red_v_ = 20;
 
+    blue_r = 0.77;
+    blue_g = -0.12;
+    blue_b = -0.63;
+    blue_th = 35;
+
+    green_r = -0.46;
+    green_g =  0.81;
+    green_b = -0.34;
+    green_th = 15;
+
+    for(int i = 0;i < 30; i++)
+        efilter[i] = 1;
+
     area_thresh_ = 500;
     dmin_thresh_ = 40;
 }
@@ -47,6 +60,118 @@ void BoundaryDetector::extract_color(Mat* src, Mat* dst, int h_th_low, int h_th_
     bitwise_and(*dst, v_dst, *dst);
 
     return;
+}
+
+void BoundaryDetector::extract_rgb(Mat* src, Mat* dst, double cr, double cg, double cb, double th){
+
+    for(int y = 0; y < src->rows; y++){
+            for(int x = 0; x < src->cols; x++){
+                    // 画像のチャネル数分だけループ。白黒の場合は1回、カラーの場合は3回　　　　　
+                    double r = src->data[ y * src->step + x * src->elemSize()];
+                    double g = src->data[ y * src->step + x * src->elemSize() + 1];
+                    double b = src->data[ y * src->step + x * src->elemSize() + 2];
+                    double gray = r * cr + g * cg + b * cb;
+                    if(gray > th){
+                        dst->data[ y * dst->step + x * dst->elemSize()] = 2;
+                    }
+                    else{
+                        dst->data[ y * dst->step + x * dst->elemSize()] = 0;
+                    }
+            }
+    }
+    return;
+}
+
+void BoundaryDetector::detect_edge(Mat* in, Mat* out, Mat* edge){
+    int num = 25;
+    for(int y = 2; y < in->rows - num; y++){
+            for(int x = 2; x < in->cols - num; x++){
+                if(in->data[ y * in->step + x * in->elemSize()] <= 0){
+                    continue;
+                }
+                else{
+                    int e = 0;
+                    int e1 = 0;
+                    int e2 = 0;
+                    int e3 = 0;
+                    int e4 = 0;
+                    int s = 0;
+                    for(int k = 0; k < num; k++){
+                        e1 += (in->data[ (y - k) * in->step + x * in->elemSize()] - 1) * efilter[k];
+                        e1 += (out->data[ (y + k) * out->step + x * out->elemSize()] -1)* efilter[k];
+                        e3 += (in->data[ y  * in->step + (x - k) * in->elemSize()] - 1) * efilter[k];
+                        e3 += (out->data[ y * out->step + (x + k) * out->elemSize()] -1)* efilter[k];
+
+                        e2 += (in->data[ (y + k) * in->step + x * in->elemSize()] - 1) * efilter[k];
+                        e2 += (out->data[ (y - k) * out->step + x * out->elemSize()] -1)* efilter[k];
+                        e4 += (in->data[ y  * in->step + (x + k) * in->elemSize()] - 1) * efilter[k];
+                        e4 += (out->data[ y * out->step + (x - k) * out->elemSize()] -1)* efilter[k];
+
+                    }
+                    e = max(max(e1, e2), max(e3, e4));
+                    if( e > 0){
+                        edge->data[ y * edge->step + x * edge->elemSize()] = 255;
+                    }
+                }
+            }
+    }
+}
+
+bool BoundaryDetector::calc_g(Mat *src, Vector2f *g){
+    vector<vector<Point> > contours; 
+    findContours(*src, contours, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE);
+    sort(contours.begin(), contours.end(), compareContourAreas);
+    int calcnum = 2;
+
+    if(contours.size() > 0){
+        int i = contours.size() - 1;
+        int count=contours.at(i).size();
+        double x=0; double y=0;
+        for(int j=0;j<count;j++){
+            x+=contours.at(i).at(j).x;
+            y+=contours.at(i).at(j).y;
+        } 
+        x/=count;
+        y/=count;
+        g->x() += x;
+        g->y() += y;
+    return true;
+    }
+    else{
+        return false;
+    }
+}
+
+
+void BoundaryDetector::findLine(Mat *src, Vector2f g, Vector2f *norm_start, Vector2f *norm){
+    vector<Vec4i> lines;
+    HoughLinesP(*src, lines, 1, CV_PI/180, 80, 30, 10 );
+    Vector2f start(0, 0);
+    Vector2f end(0, 0);
+    Vector2f vec(0, 0);
+    Vector2f norm_;
+    for( size_t i = 0; i < lines.size(); i++ )
+    {
+        Vector2f start_, end_, vec_;
+        start_.x() = lines[i][0];
+        start_.y() = lines[i][1];
+        end_.x() = lines[i][2];
+        end_.y() = lines[i][3];
+        vec_ = end_ - start_;
+        vec_ /= vec_.norm();
+        start += start_;
+        end += end_;
+        vec += vec_;
+    }
+    start /= lines.size();
+    end /= lines.size();
+    vec /= lines.size();
+    *norm_start = 0.5 * (start + end);
+    Vector2f vecg = g - start;
+    norm_ << vec.y(), -vec.x();
+    norm_ = norm_.dot(vecg) * norm_;
+    norm_ /= norm_.norm();
+    *norm = norm_;
 }
 
 // comparison function object
@@ -141,18 +266,21 @@ bool BoundaryDetector::calc_norm(vector<Point> points_in, vector<Point> points_o
 
 bool BoundaryDetector::get_norm(Mat *org, Vector2f *norm_start, Vector2f *norm){
 
-    Mat red_image, green_image;
+    Mat in1_image = Mat::zeros(Size(org->cols, org->rows), CV_8U);
+    Mat out1_image = Mat::zeros(Size(org->cols, org->rows), CV_8U);
+    Mat edge = Mat::zeros(Size(org->cols, org->rows), CV_8U);
     
-    extract_color(org, &red_image, red_h_low_, red_h_high_, red_s_, red_v_);
-    extract_color(org, &green_image, green_h_low_, green_h_high_, green_s_, green_v_);
-    vector<Point> approx_red, approx_green;
-    bool apprect_red = approx_rect(&red_image, &approx_red);
-    bool apprect_green = approx_rect(&green_image, &approx_green);
-    if(apprect_red && apprect_green){
-        // Vector2f norm, norm_start, norm_end;
-        bool calc = calc_norm(approx_red, approx_green, norm_start, norm);
-        return calc;
+    extract_rgb(org, &in1_image, blue_r, blue_g, blue_b, blue_th);
+    extract_rgb(org, &out1_image, green_r, green_g, green_b, green_th);
+    detect_edge(&in1_image, &out1_image, &edge);
+    Vector2f g;
+    if(calc_g(&out1_image, &g)){
+        findLine(&edge, g, norm_start, norm);
+        return true;
     }
-    return false;
+    else{
+        return false;
+    }
+    return true;
 }
 
