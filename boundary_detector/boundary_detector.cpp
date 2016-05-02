@@ -35,33 +35,6 @@ BoundaryDetector::BoundaryDetector(){
     dmin_thresh_ = 40;
 }
 
-void BoundaryDetector::extract_color(Mat* src, Mat* dst, int h_th_low, int h_th_up, int s_th, int v_th){
-    Mat hsv;
-    cvtColor(*src, hsv, COLOR_BGR2HSV);
-    vector<Mat> planes;
-    split(hsv, planes);
-    Mat h_dst_1, h_dst_2;
-    Mat s_dst, v_dst;
-
-    if(h_th_low > h_th_up){
-        threshold(planes[0], h_dst_1, h_th_low, 255, THRESH_BINARY);
-        threshold(planes[0], h_dst_2, h_th_up, 255, THRESH_BINARY_INV);
-        bitwise_or(h_dst_1, h_dst_2, *dst);
-    }
-    else{
-        threshold(planes[0], *dst, h_th_low, 255, THRESH_TOZERO);
-        threshold(*dst, *dst, h_th_up, 255, THRESH_TOZERO_INV);
-        threshold(*dst, *dst, 0, 255, THRESH_BINARY);
-    }
-    threshold(planes[1], s_dst, s_th, 255, THRESH_BINARY);
-    threshold(planes[2], v_dst, v_th, 255, THRESH_BINARY);
-
-    bitwise_and(*dst, s_dst, *dst);
-    bitwise_and(*dst, v_dst, *dst);
-
-    return;
-}
-
 void BoundaryDetector::extract_rgb(Mat* src, Mat* dst, double cr, double cg, double cb, double th){
 
     for(int y = 0; y < src->rows; y++){
@@ -83,7 +56,7 @@ void BoundaryDetector::extract_rgb(Mat* src, Mat* dst, double cr, double cg, dou
 }
 
 void BoundaryDetector::detect_edge(Mat* in, Mat* out, Mat* edge){
-    int num = 25;
+    int num = 35;
     for(int y = 2; y < in->rows - num; y++){
             for(int x = 2; x < in->cols - num; x++){
                 if(in->data[ y * in->step + x * in->elemSize()] <= 0){
@@ -95,7 +68,6 @@ void BoundaryDetector::detect_edge(Mat* in, Mat* out, Mat* edge){
                     int e2 = 0;
                     int e3 = 0;
                     int e4 = 0;
-                    int s = 0;
                     for(int k = 0; k < num; k++){
                         e1 += (in->data[ (y - k) * in->step + x * in->elemSize()] - 1) * efilter[k];
                         e1 += (out->data[ (y + k) * out->step + x * out->elemSize()] -1)* efilter[k];
@@ -117,170 +89,152 @@ void BoundaryDetector::detect_edge(Mat* in, Mat* out, Mat* edge){
     }
 }
 
-bool BoundaryDetector::calc_g(Mat *src, Vector2f *g){
-    vector<vector<Point> > contours; 
-    findContours(*src, contours, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE);
-    sort(contours.begin(), contours.end(), compareContourAreas);
-    int calcnum = 2;
-
-    if(contours.size() > 0){
-        int i = contours.size() - 1;
-        int count=contours.at(i).size();
-        double x=0; double y=0;
-        for(int j=0;j<count;j++){
-            x+=contours.at(i).at(j).x;
-            y+=contours.at(i).at(j).y;
-        } 
-        x/=count;
-        y/=count;
-        g->x() += x;
-        g->y() += y;
+bool BoundaryDetector::calc_g(Mat *in, Vector2f *g){
+    g->x() = 0;
+    g->y() = 0;
+    int cnt = 0;
+    for(int y = 2; y < in->rows; y=y+4){
+        for(int x = 2; x < in->cols; x=x+4){
+            if(in->data[ y * in->step + x * in->elemSize()] <= 0){
+                continue;
+            }
+            else{
+                g->x() += x;
+                g->y() += y;
+                cnt++;
+            }
+        }
+    }
+    g->x() /= cnt;
+    g->y() /= cnt;
     return true;
-    }
-    else{
-        return false;
-    }
 }
 
-
-void BoundaryDetector::findLine(Mat *src, Vector2f g, Vector2f *norm_start, Vector2f *norm){
+int BoundaryDetector::findLine(Mat *src, Vector2f g, Vector2f *norm_start1, Vector2f *norm1, Vector2f *norm_start2, Vector2f *norm2){
     vector<Vec4i> lines;
-    HoughLinesP(*src, lines, 1, CV_PI/180, 80, 30, 10 );
+    HoughLinesP(*src, lines, 1, CV_PI/180, 30, 10, 10 );
     Vector2f start(0, 0);
     Vector2f end(0, 0);
     Vector2f vec(0, 0);
-    Vector2f norm_;
-    for( size_t i = 0; i < lines.size(); i++ )
-    {
-        Vector2f start_, end_, vec_;
-        start_.x() = lines[i][0];
-        start_.y() = lines[i][1];
-        end_.x() = lines[i][2];
-        end_.y() = lines[i][3];
-        vec_ = end_ - start_;
-        vec_ /= vec_.norm();
-        start += start_;
-        end += end_;
-        vec += vec_;
-    }
-    start /= lines.size();
-    end /= lines.size();
-    vec /= lines.size();
-    *norm_start = 0.5 * (start + end);
-    Vector2f vecg = g - start;
-    norm_ << vec.y(), -vec.x();
-    norm_ = norm_.dot(vecg) * norm_;
-    norm_ /= norm_.norm();
-    *norm = norm_;
-}
-
-// comparison function object
-bool BoundaryDetector::compareContourAreas ( vector<Point> contour1, vector<Point> contour2 ) {
-    double i = fabs( contourArea(Mat(contour1)) );
-    double j = fabs( contourArea(Mat(contour2)) );
-    return ( i < j );
-}
-
-bool BoundaryDetector::approx_rect(Mat *img, vector<Point> *approx){
-
-    erode(*img, *img, Mat(), Point(-1,-1), 1);
-    dilate(*img, *img, Mat(), Point(-1,-1), 1);
-    vector<vector<Point> > contours;
-    findContours(*img, contours, CV_RETR_TREE, CHAIN_APPROX_SIMPLE);
-    sort(contours.begin(), contours.end(), compareContourAreas);
-
-    unsigned int poly_corner = 4;
-
-    for(unsigned int i = 0; i < contours.size(); i++){
-        double arclen = arcLength(Mat(contours[i]), true);
-        approxPolyDP(Mat(contours[i]), *approx, 0.02*arclen, true);
-        if(approx->size() == poly_corner){
-            if(contourArea(Mat(contours[i])) > area_thresh_)
-                return true;
+    Vector2f norm_, vecg;
+    Vector2f start1, start2, end1, end2, vec1, vec2;
+    if(lines.size() > 2){
+        Mat mlines = Mat::zeros(Size(2, lines.size()), CV_32F);
+        Vector2f start(0, 0);
+        for(unsigned int i = 0; i < lines.size(); i++){
+            Vector2f start_, end_, vec_;
+            start_.x() = lines[i][0];
+            start_.y() = lines[i][1];
+            end_.x() = lines[i][2];
+            end_.y() = lines[i][3];
+            vec_ = end_ - start_;
+            vec_ /= vec_.norm();
+            mlines.at<float>(i, 3) = start_.x();
+            mlines.at<float>(i, 4) = start_.y();
+            mlines.at<float>(i, 0) = vec_.x();
+            mlines.at<float>(i, 1) = vec_.y();
         }
-    }
-    return false;
-}
-    
-bool BoundaryDetector::calc_norm(vector<Point> points_in, vector<Point> points_out, Vector2f *norm_start, Vector2f *norm){
-    Vector2f g(0, 0);
-    for(int i = 0; i < 4; i++){
-        g.x() += 0.25 * points_out[i].x;
-        g.y() += 0.25 * points_out[i].y;
-    }
-    int min_in = 0;
-    int min_out = 0;
-    double dminj = 1000;
-    for(int i = 0; i < 4; i++){
-        for(int j = 0; j < 4; j++){
-            double dx = points_in[i].x - points_out[j].x;
-            double dy = points_in[i].y - points_out[j].y;
-            double d = sqrt(dx * dx + dy * dy);
-            if(d < dminj){
-                dminj = d;
-                min_in = i;
-                min_out = j;
+        Mat labels = Mat::zeros(Size(1, lines.size()), CV_32F);
+        Mat centers = Mat::zeros(Size(2, lines.size()), CV_32F);
+        kmeans(mlines, 2, labels, cvTermCriteria(CV_TERMCRIT_EPS+CV_TERMCRIT_ITER,10,1.0), 1, 0, centers); 
+        Vector2f vec1(0, 0);
+        Vector2f vec2(0, 0);
+        Vector2f start1(0, 0);
+        Vector2f start2(0, 0);
+        Vector2f end1(0, 0);
+        Vector2f end2(0, 0);
+        vec1 << centers.at<float>(0, 0), centers.at<float>(0, 1);
+        vec2 << centers.at<float>(1, 0), centers.at<float>(1, 1);
+        double e = vec2.dot(vec1);
+        int label0 = 0; int label1 = 0;
+        for(int i = 0; i < labels.rows; i++){
+            if(labels.at<int>(i) == 0){ 
+                start1.x() += lines[i][0];
+                start1.y() += lines[i][1];
+                end1.x() += lines[i][2];
+                end1.y() += lines[i][3];
+                label0 += 1; 
+            }
+            else{
+                start2.x() += lines[i][0];
+                start2.y() += lines[i][1];
+                end2.x() += lines[i][2];
+                end2.y() += lines[i][3];
+                label1 += 1;
             }
         }
-    }
-    Vector2f v_in, v_out, v_in_v, v_start;
-    v_start.x() = 0.5 * (points_in[min_in].x + points_out[min_out].x);
-    v_start.y() = 0.5 * (points_in[min_in].y + points_out[min_out].y);
-    int max_in = 0;
-    double dmin = 1000;
-    for(int i = 0; i < 4; i++){
-        if(i != min_in){
-            v_in << points_in[i].x - v_start.x(), points_in[i].y - v_start.y();
-            v_in_v << v_in.y(), -v_in.x();
-            v_in_v /= v_in_v.norm();
-            for(int j = 0; j < 4; j++){
-                if(j != min_out){
-                    v_out << points_out[j].x - v_start.x(), points_out[j].y - v_start.y();
-                    double d = fabs(v_in_v.dot(v_out));
-                    if(d < dmin && v_in.dot(v_out) > 0){
-                        dmin = d;
-                        max_in = i;
-                    }
-                }
+        int max_label;
+        if(label0 > label1){
+            max_label = 0;
+        }
+        else{
+            max_label = 1;
+        }
+        start1 /= label0 * 1.0;
+        start2 /= label1 * 1.0;
+        end1 /= label0 * 1.0;
+        end2 /= label1 * 1.0;
+        if(fabs(e) > 0.8 || min(label0, label1) < 2){
+            if(max_label == 0){
+                *norm_start1 = 0.5 * (start1 + end1);
+                vecg = g - start1;
+                norm_ << vec1.y(), -vec1.x();
+                norm_ = norm_.dot(vecg) * norm_;
+                norm_ /= norm_.norm();
+                *norm1 = norm_;
             }
+            else{
+                *norm_start1 = 0.5 * (start2 + end2);
+                vecg = g - start2;
+                norm_ << vec2.y(), -vec2.x();
+                norm_ = norm_.dot(vecg) * norm_;
+                norm_ /= norm_.norm();
+                *norm1 = norm_;
+            }
+            return 1;
+        }
+        else{
+            *norm_start1 = 0.5 * (start1 + end1);
+            vecg = g - *norm_start1;
+            vecg /= vecg.norm();
+            norm_ << vec1.y(), -vec1.x();
+            norm_ = norm_.dot(vecg) * norm_;
+            norm_ /= norm_.norm();
+            *norm1 = norm_;
+
+            *norm_start2 = 0.5 * (start2 + end2);
+            vecg = g - *norm_start2;
+            vecg /= vecg.norm();
+            norm_ << vec2.y(), -vec2.x();
+            norm_ = norm_.dot(vecg) * norm_;
+            norm_ /= norm_.norm();
+            *norm2 = norm_;
+            return 2;
         }
     }
-    Vector2f v_end;
-    if(dmin < dmin_thresh_){
-        v_end.x() = points_in[max_in].x;
-        v_end.y() = points_in[max_in].y;
-        Vector2f v_line;
-        v_line = v_end - v_start;
-        Vector2f norm_, vecg;
-        *norm_start = 0.5 * v_start + 0.5 * v_end;
-        vecg = g - v_start;
-        norm_ << v_line.y(), -v_line.x();
-        norm_ /= norm_.norm();
-        norm_ = norm_.dot(vecg) * norm_;
-        norm_ /= norm_.norm();
-        *norm = norm_;
-        return true;
-    }
-    return false;
+    return 0;
 }
 
-bool BoundaryDetector::get_norm(Mat *org, Vector2f *norm_start, Vector2f *norm){
+int BoundaryDetector::get_norm(Mat *org, Vector2f *norm_start1, Vector2f *norm1, Vector2f *norm_start2, Vector2f *norm2){
 
     Mat in1_image = Mat::zeros(Size(org->cols, org->rows), CV_8U);
     Mat out1_image = Mat::zeros(Size(org->cols, org->rows), CV_8U);
     Mat edge = Mat::zeros(Size(org->cols, org->rows), CV_8U);
     
-    extract_rgb(org, &in1_image, blue_r, blue_g, blue_b, blue_th);
-    extract_rgb(org, &out1_image, green_r, green_g, green_b, green_th);
-    detect_edge(&in1_image, &out1_image, &edge);
-    Vector2f g;
-    if(calc_g(&out1_image, &g)){
-        findLine(&edge, g, norm_start, norm);
-        return true;
+    extract_rgb(org, &in1_image, green_r, green_g, green_b, green_th);
+    extract_rgb(org, &out1_image, blue_r, blue_g, blue_b, blue_th);
+    detect_edge(&out1_image, &in1_image, &edge);
+    // imshow("out", out1_image * 120);
+    // imshow("in", in1_image * 120);
+    // imshow("edge", edge);
+    Vector2f g(0, 0);
+    if(calc_g(&in1_image, &g)){
+        int find = findLine(&edge, g, norm_start1, norm1, norm_start2, norm2);
+        return find;
     }
     else{
-        return false;
+        return 0;
     }
-    return true;
+    return 0;
 }
 
