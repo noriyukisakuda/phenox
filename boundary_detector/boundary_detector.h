@@ -37,15 +37,11 @@ public:
     int dmin_thresh_;
 
     BoundaryDetector(); 
-    void extract_color(Mat* src, Mat* dst, int h_th_low, int h_th_up, int s_th, int v_th);
     void extract_rgb(Mat* src, Mat* dst, double cr, double cg, double cb, double th);
     void detect_edge(Mat* in, Mat* out, Mat* edge);
     bool calc_g(Mat *src, Vector2f *g);
-    void findLine(Mat *src, Vector2f vecg, Vector2f *norm_start, Vector2f *norm);
-    static bool compareContourAreas(vector<Point> contour1, vector<Point> contour2);
-    bool approx_rect(Mat *img, vector<Point> *approx);
-    bool calc_norm(vector<Point> points_in, vector<Point> points_out, Vector2f *norm_start, Vector2f *norm);
-    bool get_norm(Mat * org, Vector2f *norm_start, Vector2f *norm);
+    int findLine(Mat *src, Vector2f g, Vector2f *norm_start1, Vector2f *norm1, Vector2f *norm_start2, Vector2f *norm2);
+    int get_norm(Mat *org, Vector2f *norm_start1, Vector2f *norm1, Vector2f *norm_start2, Vector2f *norm2);
     
 };
 
