@@ -46,6 +46,8 @@ THE SOFTWARE.
 #include <fstream>
 #include <turbojpeg.h>
 
+#define INTERVAL 5
+
 using namespace std;
 
 static void setup_timer();
@@ -55,8 +57,8 @@ static void *timer_handler(void *ptr);
 
 pthread_t timer_thread;
 
-const px_cameraid cameraid = PX_FRONT_CAM;
-//const px_cameraid cameraid = PX_BOTTOM_CAM;
+//const px_cameraid cameraid = PX_FRONT_CAM;
+const px_cameraid cameraid = PX_BOTTOM_CAM;
 
 
 double get_time() {
@@ -75,15 +77,12 @@ int main(int argc, char **argv)
   int len ;
   struct sockaddr_un address;
   int result ;
-  /*
   client_sockfd = socket(AF_UNIX,SOCK_STREAM,0);
   address.sun_family = AF_UNIX ;
   strcpy(address.sun_path , "/root/nodejs/projects/imgserver/mysocket");
   len = sizeof(address);
   result = connect(client_sockfd , (struct sockaddr *)&address , len);
   if(result != 0) {exit(-1);}
-  */
-
 
   pxinit_chain();
   set_parameter();   
@@ -166,6 +165,9 @@ static void setup_timer() {
     timer_thread = pthread_create(&timer_thread, NULL, timer_handler, NULL);
 }
 
+void bound() {
+}
+
 void *timer_handler(void *ptr) {
     if(timer_disable == 1) {
         return NULL;
@@ -185,10 +187,13 @@ void *timer_handler(void *ptr) {
         static unsigned long msec_cnt = 0;
         msec_cnt++;
 
+        static double t_interval = 0;
+
         gettimeofday(&now, NULL);
         dt = (now.tv_sec - prev.tv_sec) + 
                 (now.tv_usec - prev.tv_usec) * 1.0E-6;
         cout << dt << endl;
+        t_interval += dt;
         if(dt < 0){
             cout << "dt < 0" << endl;
             continue;
@@ -199,18 +204,40 @@ void *timer_handler(void *ptr) {
         px_selfstate st;
         pxget_selfstate(&st);
 
-        double rvx = 0;
-        double rvy = 0;
+        static double x_range = 0;
+        static double x_offset = 1.9;
+        static double rvx = x_range + x_offset;
+        static double y_range = 4;
+        static double y_offset = 0.86;
+        static double rvy = y_range + y_offset;
+
+        static double tx_start = 0;
+        static double ty_start = 0;
+
+        if(msec_cnt == 100){
+            tx_start = st.vision_tx;
+            ty_start = st.vision_ty;
+        }
+
+        if(t_interval > INTERVAL && msec_cnt > 100){
+            rvx = -rvx + 2*x_offset;
+            rvy = -rvy + 2*y_offset;
+            t_interval = 0;
+        }
         
-        double kpx = 0.;
+        double kpx = 0;
         double kpy = 0;
         double kdx = 0;
         double kdy = 0;
         double kix = 0;
         double kiy = 0;
 
-        double ex = rvx - st.vision_vx;
-        double ey = rvy - st.vision_vy;
+        double p_x = st.vision_tx - tx_start;
+        double p_y = st.vision_ty - ty_start;
+        double rv_2 = rvx*rvx + rvy*rvy;
+        double p_dot_v = p_x*rvx + p_y*rvy;
+        double ex = - p_x + p_dot_v*rvx/rv_2;
+        double ey = - p_y + p_dot_v*rvy/rv_2;
 
         static double exi = 0;
         static double eyi = 0;
@@ -222,8 +249,8 @@ void *timer_handler(void *ptr) {
         ex_prev = ex;
         ey_prev = ey;
 
-        double uy = kpx * ex + kdx * dex + kix * exi;
-        double ux = kpy * ey + kdy * dey + kiy * eyi;
+        double uy = rvx + kpx * ex + kdx * dex + kix * exi;
+        double ux = rvy + kpy * ey + kdy * dey + kiy * eyi;
         ux = -ux;
         if(fabs(ux) > 50){
             ux = 50 * ux / fabs(ux);
@@ -238,7 +265,9 @@ void *timer_handler(void *ptr) {
         static ofstream ofs_ctl("output_ctl");
             ofs_ctl << ux << "," << uy << endl;
         static ofstream ofs_vision("output_vision");
-            ofs_vision << st.vision_tx << "," << st.vision_ty << "," << ux << "," << uy << endl;
+            ofs_vision << st.vision_vx << "," << st.vision_vy << "," << ux << "," << uy << endl;
+        static ofstream ofs_e("output_e");
+            ofs_e << ex << "," << ey << "," << ux << "," << uy << endl;
 
         // if(!(msec_cnt % 30)){
         //     printf("%.2f %.2f %.2f | %.2f %.2f %.2f | %.2f | \n",st.degx,st.degy,st.degz,st.vision_tx,st.vision_ty,st.vision_tz,st.height);
@@ -265,6 +294,7 @@ void *timer_handler(void *ptr) {
         static int prev_operatemode = PX_HALT;
         if((prev_operatemode == PX_UP) && (pxget_operate_mode() == PX_HOVER)) {
             pxset_visioncontrol_xy(st.vision_tx,st.vision_ty);
+            msec_cnt = 0;
         }
         prev_operatemode = pxget_operate_mode();  
 
@@ -274,7 +304,7 @@ void *timer_handler(void *ptr) {
             }      
             else if(pxget_operate_mode() == PX_HALT) {
                 pxset_rangecontrol_z(150);
-                pxset_operate_mode(PX_UP);		   
+                pxset_operate_mode(PX_UP);
             }      
         }
         if(pxget_battery() == 1) {
