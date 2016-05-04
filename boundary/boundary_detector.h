@@ -11,30 +11,21 @@ using namespace cv;
 class BoundaryDetector{
 public:
     // parameter
-    int green_h_low_;
-    int green_h_high_;
-    int green_s_;
-    int green_v_;
-
-    int red_h_low_;
-    int red_h_high_;
-    int red_s_;
-    int red_v_;
-
     double blue_r;
     double blue_g;
     double blue_b;
     double blue_th;
 
-    double green_r;
-    double green_g;
-    double green_b;
-    double green_th;
+    double yellow_r;
+    double yellow_g;
+    double yellow_b;
+    double yellow_th;
 
     int efilter[30];
 
     int area_thresh_;
     int dmin_thresh_;
+    int edge_num_;
     int skip_step_;
 
     BoundaryDetector(); 

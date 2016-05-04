@@ -10,31 +10,22 @@ using namespace cv;
 using namespace Eigen;
 
 BoundaryDetector::BoundaryDetector(){
-    green_h_low_ = 20;
-    green_h_high_ = 100;
-    green_s_ = 60;
-    green_v_ = 30;
-
-    red_h_low_ = 270;
-    red_h_high_ = 15;
-    red_s_ = 60;
-    red_v_ = 20;
-
     blue_r = 0.77;
     blue_g = -0.12;
     blue_b = -0.63;
     blue_th = 35;
 
-    green_r = -0.46;
-    green_g =  0.81;
-    green_b = -0.34;
-    green_th = 15;
+    yellow_r = -0.46;
+    yellow_g =  0.81;
+    yellow_b = -0.34;
+    yellow_th = 15;
 
     for(int i = 0;i < 30; i++)
         efilter[i] = 1;
 
     area_thresh_ = 500;
     dmin_thresh_ = 40;
+    edge_num_ = 10;
     skip_step_ = 2;
 }
 
@@ -59,9 +50,8 @@ void BoundaryDetector::extract_rgb(Mat* src, Mat* dst, double cr, double cg, dou
 }
 
 void BoundaryDetector::detect_edge(Mat* in, Mat* out, Mat* edge){
-    int num = 10;
-    for(int y = 2; y < in->rows - num; y++){
-            for(int x = 2; x < in->cols - num; x++){
+    for(int y = 2; y < in->rows - edge_num_; y++){
+            for(int x = 2; x < in->cols - edge_num_; x++){
                 if(in->data[ y * in->step + x * in->elemSize()] <= 0){
                     continue;
                 }
@@ -71,7 +61,7 @@ void BoundaryDetector::detect_edge(Mat* in, Mat* out, Mat* edge){
                     int e2 = 0;
                     int e3 = 0;
                     int e4 = 0;
-                    for(int k = 0; k < num; k++){
+                    for(int k = 0; k < edge_num_; k++){
                         e1 += (in->data[ (y - k) * in->step + x * in->elemSize()] - 1) * efilter[k];
                         e1 += (out->data[ (y + k) * out->step + x * out->elemSize()] -1)* efilter[k];
                         e3 += (in->data[ y  * in->step + (x - k) * in->elemSize()] - 1) * efilter[k];
@@ -227,7 +217,7 @@ int BoundaryDetector::get_norm(Mat *org, Vector2f *norm_start1, Vector2f *norm1,
     Mat out1_image = Mat::zeros(Size(org->cols / skip_step_ + 1, org->rows / skip_step_ + 1), CV_8U);
     Mat edge = Mat::zeros(Size(org->cols / skip_step_ + 1, org->rows / skip_step_ + 1), CV_8U);
 
-    extract_rgb(org, &in1_image, green_r, green_g, green_b, green_th);
+    extract_rgb(org, &in1_image, yellow_r, yellow_g, yellow_b, yellow_th);
     extract_rgb(org, &out1_image, blue_r, blue_g, blue_b, blue_th);
     detect_edge(&out1_image, &in1_image, &edge);
     // imshow("out", out1_image * 120);
