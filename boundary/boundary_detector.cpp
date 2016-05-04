@@ -23,8 +23,6 @@ BoundaryDetector::BoundaryDetector(){
     for(int i = 0;i < 30; i++)
         efilter[i] = 1;
 
-    area_thresh_ = 500;
-    dmin_thresh_ = 40;
     edge_num_ = 10;
     skip_step_ = 2;
 }
