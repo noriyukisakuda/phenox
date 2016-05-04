@@ -125,7 +125,7 @@ int main(int argc, char **argv)
   while(1) {         
     if(pxget_imgfullwcheck(cameraid,&testImage) == 1) {	
       frames_count++;
-      cout << frames_count << endl;
+      //cout << frames_count << endl;
       mat = cvarrToMat(testImage);
       int gn = bd.get_norm(&mat, &norm_start, &norm, &norm_start2, &norm2);
 
@@ -191,14 +191,18 @@ static void setup_timer() {
 }
 
 void bound(Vector2f &n, Vector2f &v) {
+    if(n.dot(v) > 0) {
+        return;
+    }
     v += -2*(n.dot(v))*n;
+    cout << "n" << n << endl << endl;
 }
 
 void bound(Vector2f &n, Vector2f &n2, Vector2f &v) {
     Vector2f new_n;
     new_n = (n + n2);
     new_n.normalize();
-    v += -2*(new_n.dot(v))*new_n;
+    bound(new_n,v);
 }
 
 void *timer_handler(void *ptr) {
@@ -232,7 +236,7 @@ void *timer_handler(void *ptr) {
         px_selfstate st;
         pxget_selfstate(&st);
 
-        static Vector2f v(-0,-0);
+        static Vector2f v(0,50);
         static Vector2f start_point(0,0);
         Vector2f norm, norm_start;
         Vector2f norm2, norm_start2;
@@ -245,29 +249,32 @@ void *timer_handler(void *ptr) {
             norm2 = gnorm2;
             norm_start2 = gnorm_start2;
             boundary_cnt = gboundary_cnt;
-            cout << "boundary cnt = " << boundary_cnt << endl;
-            cout << "norm = \n" << norm << endl;
-            cout << "norm2 = \n" << norm2 << endl;
+            //cout << "boundary cnt = " << boundary_cnt << endl;
+            //cout << "norm = \n" << norm << endl;
+            //cout << "norm2 = \n" << norm2 << endl;
+            pthread_mutex_unlock(&mutex);
 
+            norm.x() = -norm.x();
             if(boundary_cnt == 1){
                 bound(norm,v);
                 flight_time = 0;
                 start_point << st.vision_tx,st.vision_ty;
-            }else if(boundary_cnt == 2){
+            /*}else if(boundary_cnt == 2){
                 bound(norm,norm2,v);
                 flight_time = 0;
                 start_point << st.vision_tx,st.vision_ty;
+                */
             }
         }
 
         input = start_point + flight_time*v;
-        //cout << "v = \n" << v << endl;
+        cout << v.x() << ' ' << v.y() << endl;
         
         // save log
         static ofstream ofs_deg("output_deg");
             ofs_deg << st.degx << "," << st.degy << endl;
-        static ofstream ofs_ctl("output_ctl");
-            ofs_ctl << input << endl;
+        static ofstream ofs_ctl("output_v");
+            ofs_ctl << v.x() << "," << v.y() << "," << norm.x() << "," << norm.y() << endl;
         static ofstream ofs_vision("output_vision");
             ofs_vision << st.vision_tx << "," << st.vision_ty << "," << input.x() << input.y()  << endl;
 
