@@ -165,7 +165,10 @@ static void setup_timer() {
     timer_thread = pthread_create(&timer_thread, NULL, timer_handler, NULL);
 }
 
-void bound() {
+void bound(double &nx, double &ny, double &vx, double &vy) {
+    double n_abs = -2*(nx*vx + ny*vy)/(nx*nx + ny*ny);
+    vx += n_abs*nx;
+    vy += n_abs*ny;
 }
 
 void *timer_handler(void *ptr) {
@@ -192,7 +195,7 @@ void *timer_handler(void *ptr) {
         gettimeofday(&now, NULL);
         dt = (now.tv_sec - prev.tv_sec) + 
                 (now.tv_usec - prev.tv_usec) * 1.0E-6;
-        cout << dt << endl;
+        //cout << dt << endl;
         t_interval += dt;
         if(dt < 0){
             cout << "dt < 0" << endl;
@@ -204,24 +207,38 @@ void *timer_handler(void *ptr) {
         px_selfstate st;
         pxget_selfstate(&st);
 
-        static double x_range = 0;
-        static double x_offset = 1.9;
-        static double rvx = x_range + x_offset;
+        static double x_range = -4;
+        static double x_offset = 0;
+        static double rvx = 30;
         static double y_range = 4;
-        static double y_offset = 0.86;
-        static double rvy = y_range + y_offset;
+        static double y_offset = 0;
+        static double rvy = 0;
 
-        static double tx_start = 0;
-        static double ty_start = 0;
+        static double start_tx = 0;
+        static double start_ty = 0;
+        static double origin_tx = 0;
+        static double origin_ty = 0;
+        static double tx_prev = 0;
+        static double ty_prev = 0;
 
-        if(msec_cnt == 100){
-            tx_start = st.vision_tx;
-            ty_start = st.vision_ty;
-        }
+        double dtx = st.vision_tx -tx_prev;
+        double dty = st.vision_ty -tx_prev;
+
+        tx_prev = st.vision_tx;
+        ty_prev = st.vision_ty;
+
+        static double nx = 1;
+        static double ny = 0;
 
         if(t_interval > INTERVAL && msec_cnt > 100){
-            rvx = -rvx + 2*x_offset;
-            rvy = -rvy + 2*y_offset;
+            //rvx = -rvx + 2*x_offset;
+            //rvy = -rvy + 2*y_offset;
+            bound(nx,ny,rvx,rvy);
+            cout << nx << "," << ny << ",";
+            cout << rvx << "," << rvy << endl;
+            double nx_prev = nx;
+            nx = -nx;
+            //ny = nx_prev;
             t_interval = 0;
         }
         
@@ -232,12 +249,12 @@ void *timer_handler(void *ptr) {
         double kix = 0;
         double kiy = 0;
 
-        double p_x = st.vision_tx - tx_start;
-        double p_y = st.vision_ty - ty_start;
+        double pos_tx = st.vision_tx - start_tx;
+        double pos_ty = st.vision_ty - start_ty;
         double rv_2 = rvx*rvx + rvy*rvy;
-        double p_dot_v = p_x*rvx + p_y*rvy;
-        double ex = - p_x + p_dot_v*rvx/rv_2;
-        double ey = - p_y + p_dot_v*rvy/rv_2;
+        double p_dot_v = pos_tx*rvx + pos_ty*rvy;
+        double ex = - pos_tx + p_dot_v*rvx/rv_2;
+        double ey = - pos_ty + p_dot_v*rvy/rv_2;
 
         static double exi = 0;
         static double eyi = 0;
@@ -249,8 +266,10 @@ void *timer_handler(void *ptr) {
         ex_prev = ex;
         ey_prev = ey;
 
-        double uy = rvx + kpx * ex + kdx * dex + kix * exi;
-        double ux = rvy + kpy * ey + kdy * dey + kiy * eyi;
+        double uy = rvx + x_offset
+                            + kpx*ex + kdx*dex + kix*exi;
+        double ux = rvy + y_offset
+                            + kpy*ey + kdy*dey + kiy*eyi;
         ux = -ux;
         if(fabs(ux) > 50){
             ux = 50 * ux / fabs(ux);
@@ -265,7 +284,7 @@ void *timer_handler(void *ptr) {
         static ofstream ofs_ctl("output_ctl");
             ofs_ctl << ux << "," << uy << endl;
         static ofstream ofs_vision("output_vision");
-            ofs_vision << st.vision_vx << "," << st.vision_vy << "," << ux << "," << uy << endl;
+            ofs_vision << st.vision_vx << "," << st.vision_vy << "," << dtx << "," << dty << endl;
         static ofstream ofs_e("output_e");
             ofs_e << ex << "," << ey << "," << ux << "," << uy << endl;
 
@@ -282,18 +301,29 @@ void *timer_handler(void *ptr) {
         }
 
         if(pxget_operate_mode() == PX_HOVER) {
-                if(hover_cnt < 100){
-                    hover_cnt++;
-                }
-                else{
-                    pxset_dst_degx(ux);
-                    pxset_dst_degy(uy);
-                }
+            if(hover_cnt < 500){
+                hover_cnt++;
+            }
+            else if (hover_cnt == 500) {
+                start_tx = st.vision_tx;
+                start_ty = st.vision_ty;
+                hover_cnt++;
+                cout << "start control" << endl;
+            }
+            else {
+                //pxset_dst_degx(ux);
+                //pxset_dst_degy(uy);
+                pxset_visioncontrol_xy(
+                        origin_tx+pos_tx+rvx,
+                        origin_ty+pos_ty+rvy);
+            }
         }
 
         static int prev_operatemode = PX_HALT;
         if((prev_operatemode == PX_UP) && (pxget_operate_mode() == PX_HOVER)) {
             pxset_visioncontrol_xy(st.vision_tx,st.vision_ty);
+            origin_tx = st.vision_tx;
+            origin_ty = st.vision_ty;
             msec_cnt = 0;
         }
         prev_operatemode = pxget_operate_mode();  
