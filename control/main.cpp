@@ -209,10 +209,10 @@ void *timer_handler(void *ptr) {
 
         static double x_range = -4;
         static double x_offset = 0;
-        static double rvx = 30;
+        static double rvx = -50.0;
         static double y_range = 4;
         static double y_offset = 0;
-        static double rvy = 0;
+        static double rvy = -50.0;
 
         static double start_tx = 0;
         static double start_ty = 0;
@@ -230,6 +230,8 @@ void *timer_handler(void *ptr) {
         static double nx = 1;
         static double ny = 0;
 
+        static int move_cnt;
+
         if(t_interval > INTERVAL && msec_cnt > 100){
             //rvx = -rvx + 2*x_offset;
             //rvy = -rvy + 2*y_offset;
@@ -237,9 +239,12 @@ void *timer_handler(void *ptr) {
             cout << nx << "," << ny << ",";
             cout << rvx << "," << rvy << endl;
             double nx_prev = nx;
-            nx = -nx;
-            //ny = nx_prev;
+            nx = -ny;
+            ny = nx_prev;
             t_interval = 0;
+            start_tx = st.vision_tx;
+            start_ty = st.vision_ty;
+            move_cnt = 0;
         }
         
         double kpx = 0;
@@ -280,13 +285,16 @@ void *timer_handler(void *ptr) {
 
         // save log
         static ofstream ofs_deg("output_deg");
-            ofs_deg << st.degx << "," << st.degy << endl;
+        ofs_deg << st.degx << "," << st.degy << endl;
         static ofstream ofs_ctl("output_ctl");
-            ofs_ctl << ux << "," << uy << endl;
+        ofs_ctl << start_tx+rvx*t_interval << ",";
+        ofs_ctl << start_ty+rvy*t_interval << ",";
+        ofs_ctl << st.vision_tx << ",";
+        ofs_ctl << st.vision_ty << endl;
         static ofstream ofs_vision("output_vision");
-            ofs_vision << st.vision_vx << "," << st.vision_vy << "," << dtx << "," << dty << endl;
+        ofs_vision << st.vision_tx << "," << st.vision_ty << "," << dtx << "," << dty << endl;
         static ofstream ofs_e("output_e");
-            ofs_e << ex << "," << ey << "," << ux << "," << uy << endl;
+        ofs_e << ex << "," << ey << "," << ux << "," << uy << endl;
 
         // if(!(msec_cnt % 30)){
         //     printf("%.2f %.2f %.2f | %.2f %.2f %.2f | %.2f | \n",st.degx,st.degy,st.degz,st.vision_tx,st.vision_ty,st.vision_tz,st.height);
@@ -309,13 +317,16 @@ void *timer_handler(void *ptr) {
                 start_ty = st.vision_ty;
                 hover_cnt++;
                 cout << "start control" << endl;
+                move_cnt = 0;
+                t_interval = 0;
             }
             else {
                 //pxset_dst_degx(ux);
                 //pxset_dst_degy(uy);
                 pxset_visioncontrol_xy(
-                        origin_tx+pos_tx+rvx,
-                        origin_ty+pos_ty+rvy);
+                        start_tx+rvx*t_interval,
+                        start_ty+rvy*t_interval);
+                move_cnt++;
             }
         }
 
