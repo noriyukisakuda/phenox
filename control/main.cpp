@@ -37,6 +37,7 @@ THE SOFTWARE.
 #include <sys/time.h>
 #include <termios.h>
 #include <pthread.h>
+#include <errno.h>
 #include "cv.h"
 #include "cxcore.h"
 #include "highgui.h"
@@ -45,10 +46,12 @@ THE SOFTWARE.
 #include <iostream>
 #include <fstream>
 #include <turbojpeg.h>
+#include "boundary_detector.h"
 
-#define INTERVAL 5
 
 using namespace std;
+using namespace cv;
+using namespace Eigen;
 
 static void setup_timer();
 
@@ -56,8 +59,14 @@ static char timer_disable = 0;
 static void *timer_handler(void *ptr);
 
 pthread_t timer_thread;
+pthread_mutex_t mutex;
+Vector2f gnorm(0, 0);
+Vector2f gnorm2(0, 0);
+Vector2f gnorm_start(0, 0);
+Vector2f gnorm_start2(0, 0);
+int gboundary_cnt = 0;
 
-//const px_cameraid cameraid = PX_FRONT_CAM;
+// const px_cameraid cameraid = PX_FRONT_CAM;
 const px_cameraid cameraid = PX_BOTTOM_CAM;
 
 
@@ -84,6 +93,7 @@ int main(int argc, char **argv)
   result = connect(client_sockfd , (struct sockaddr *)&address , len);
   if(result != 0) {exit(-1);}
 
+
   pxinit_chain();
   set_parameter();   
   printf("CPU0:Start Initialization. Please do not move Phenox.\n");
@@ -91,7 +101,7 @@ int main(int argc, char **argv)
   setup_timer();
   printf("CPU0:Finished Initialization.\n");
   
-  CvMat *mat;
+  Mat mat;
 
   int param[]={CV_IMWRITE_JPEG_QUALITY,70};
   IplImage *testImage;    
@@ -110,20 +120,36 @@ int main(int argc, char **argv)
   int frames_count = 0;
   double fps = 0.0;
   double last_time = get_time();
+  BoundaryDetector bd;
+  Vector2f norm, norm_start, norm_end, norm2, norm_start2, norm_end2;
   while(1) {         
     if(pxget_imgfullwcheck(cameraid,&testImage) == 1) {	
       frames_count++;
-      if(ftstate == 1) {
-      	int ftnum = pxget_imgfeature(ft,ftmax);
-	      if(ftnum >= 0) {
-	        for(i = 0;i < ftnum;i++) {
-	          cvCircle(testImage,cvPoint((int)ft[i].pcx,(int)ft[i].pcy),2,CV_RGB(255,255,0),1,8,0);
-	          cvCircle(testImage,cvPoint((int)ft[i].cx,(int)ft[i].cy),2,CV_RGB(0,255,0),1,8,0);
-	          cvLine(testImage,cvPoint((int)ft[i].pcx,(int)ft[i].pcy),cvPoint((int)ft[i].cx,(int)ft[i].cy),CV_RGB(0,0,255),1,8,0);
-	        }
-	        ftstate = 0;
-	      }
-      }
+      cout << frames_count << endl;
+      mat = cvarrToMat(testImage);
+      int gn = bd.get_norm(&mat, &norm_start, &norm, &norm_start2, &norm2);
+
+      // critical section start--------------------------------------------
+      pthread_mutex_lock(&mutex);
+      gboundary_cnt = gn;
+      gnorm = norm;
+      gnorm2 = norm2;
+      gnorm_start = norm_start;
+      gnorm_start2 = norm_start2;
+      gboundary_cnt = gn;
+      pthread_mutex_unlock(&mutex);
+      // critical section end--------------------------------------------
+      //
+    if(gn == 1){
+        norm_end = norm_start + 100 * norm;
+        cvLine(testImage, cvPoint(norm_start.x(), norm_start.y()), cvPoint(norm_end.x(), norm_end.y()), CV_RGB(0, 255, 255), 3, 4 );
+    }
+    else if(gn == 2){
+        norm_end = norm_start + 100 * norm;
+        norm_end2 = norm_start2 + 100 * norm2;
+        cvLine(testImage, cvPoint(norm_start.x(), norm_start.y()), cvPoint(norm_end.x(), norm_end.y()), CV_RGB(0, 255, 255), 3, 4 );
+        cvLine(testImage, cvPoint(norm_start2.x(), norm_start2.y()), cvPoint(norm_end2.x(), norm_end2.y()), CV_RGB(0, 255, 255), 3, 4 );
+    }
       if(pxset_imgfeature_query(cameraid) == 1) {
 	      ftstate = 1;
       }
@@ -131,7 +157,7 @@ int main(int argc, char **argv)
       tjhandle tj_compressor = tjInitCompress();
       buffer_size = 128000;
       unsigned char *buffer = (unsigned char*)testImage->imageData;
-
+      
       double encoding_time = get_time();
       if (tjCompress2(tj_compressor, buffer, 320, 0, 240, TJPF_BGR,
                 &compressed_buffer, &buffer_size, TJSAMP_420, 30,
@@ -142,12 +168,10 @@ int main(int argc, char **argv)
           write(client_sockfd, compressed_buffer, buffer_size);
           count++;
       }
-      // if (count % 30 == 0)
-      //       printf("%f: Image encoded, index: %d size: %ld\n\t fps: %f delta: %f, encoding_time: %f\n", (get_time() - start_time)/1000.0,count++,buffer_size, fps, get_time() - delta, encoding_time);
-
+      
       tjDestroy(tj_compressor);
       delta = get_time();
-
+      
       if (get_time() - last_time > 3000.0) {
           fps = frames_count * 1000.0/(get_time() - last_time);
           last_time = get_time();
@@ -163,12 +187,18 @@ static void setup_timer() {
     struct sigaction action;
     struct itimerval timer;
     timer_thread = pthread_create(&timer_thread, NULL, timer_handler, NULL);
+    pthread_mutex_init(&mutex, NULL);
 }
 
-void bound(double &nx, double &ny, double &vx, double &vy) {
-    double n_abs = -2*(nx*vx + ny*vy)/(nx*nx + ny*ny);
-    vx += n_abs*nx;
-    vy += n_abs*ny;
+void bound(Vector2f &n, Vector2f &v) {
+    v += -2*(n.dot(v))*n;
+}
+
+void bound(Vector2f &n, Vector2f &n2, Vector2f &v) {
+    Vector2f new_n;
+    new_n = (n + n2);
+    new_n.normalize();
+    v += -2*(new_n.dot(v))*new_n;
 }
 
 void *timer_handler(void *ptr) {
@@ -179,9 +209,6 @@ void *timer_handler(void *ptr) {
     static struct timeval now, prev;
     double dt = 0;
     clock_gettime(CLOCK_REALTIME, &_t);
-
-    double ex_prev = 0;
-    double ey_prev = 0;
     while(1) {
         pxset_keepalive();
         pxset_systemlog();
@@ -190,111 +217,59 @@ void *timer_handler(void *ptr) {
         static unsigned long msec_cnt = 0;
         msec_cnt++;
 
-        static double t_interval = 0;
-
         gettimeofday(&now, NULL);
         dt = (now.tv_sec - prev.tv_sec) + 
                 (now.tv_usec - prev.tv_usec) * 1.0E-6;
-        //cout << dt << endl;
-        t_interval += dt;
         if(dt < 0){
             cout << "dt < 0" << endl;
             continue;
         }
         prev = now;
+        static double flight_time = 0;
+        flight_time += dt;
 
         // vision control
         px_selfstate st;
         pxget_selfstate(&st);
 
-        static double x_range = -4;
-        static double x_offset = 0;
-        static double rvx = -50.0;
-        static double y_range = 4;
-        static double y_offset = 0;
-        static double rvy = -50.0;
+        static Vector2f v(-0,-0);
+        static Vector2f start_point(0,0);
+        Vector2f norm, norm_start;
+        Vector2f norm2, norm_start2;
+        static Vector2f input(0,0);
 
-        static double start_tx = 0;
-        static double start_ty = 0;
-        static double origin_tx = 0;
-        static double origin_ty = 0;
-        static double tx_prev = 0;
-        static double ty_prev = 0;
+        int boundary_cnt = 0;
+        if(pthread_mutex_trylock(&mutex) != EBUSY){
+            norm = gnorm;
+            norm_start = gnorm_start;
+            norm2 = gnorm2;
+            norm_start2 = gnorm_start2;
+            boundary_cnt = gboundary_cnt;
+            cout << "boundary cnt = " << boundary_cnt << endl;
+            cout << "norm = \n" << norm << endl;
+            cout << "norm2 = \n" << norm2 << endl;
 
-        double dtx = st.vision_tx -tx_prev;
-        double dty = st.vision_ty -tx_prev;
-
-        tx_prev = st.vision_tx;
-        ty_prev = st.vision_ty;
-
-        static double nx = 1;
-        static double ny = 0;
-
-        static int move_cnt;
-
-        if(t_interval > INTERVAL && msec_cnt > 100){
-            //rvx = -rvx + 2*x_offset;
-            //rvy = -rvy + 2*y_offset;
-            bound(nx,ny,rvx,rvy);
-            cout << nx << "," << ny << ",";
-            cout << rvx << "," << rvy << endl;
-            double nx_prev = nx;
-            nx = -ny;
-            ny = nx_prev;
-            t_interval = 0;
-            start_tx = st.vision_tx;
-            start_ty = st.vision_ty;
-            move_cnt = 0;
+            if(boundary_cnt == 1){
+                bound(norm,v);
+                flight_time = 0;
+                start_point << st.vision_tx,st.vision_ty;
+            }else if(boundary_cnt == 2){
+                bound(norm,norm2,v);
+                flight_time = 0;
+                start_point << st.vision_tx,st.vision_ty;
+            }
         }
+
+        input = start_point + flight_time*v;
+        //cout << "v = \n" << v << endl;
         
-        double kpx = 0;
-        double kpy = 0;
-        double kdx = 0;
-        double kdy = 0;
-        double kix = 0;
-        double kiy = 0;
-
-        double pos_tx = st.vision_tx - start_tx;
-        double pos_ty = st.vision_ty - start_ty;
-        double rv_2 = rvx*rvx + rvy*rvy;
-        double p_dot_v = pos_tx*rvx + pos_ty*rvy;
-        double ex = - pos_tx + p_dot_v*rvx/rv_2;
-        double ey = - pos_ty + p_dot_v*rvy/rv_2;
-
-        static double exi = 0;
-        static double eyi = 0;
-        exi += ex*dt;
-        eyi += ey*dt;
-
-        double dex = (ex - ex_prev)/dt;
-        double dey = (ey - ey_prev)/dt;
-        ex_prev = ex;
-        ey_prev = ey;
-
-        double uy = rvx + x_offset
-                            + kpx*ex + kdx*dex + kix*exi;
-        double ux = rvy + y_offset
-                            + kpy*ey + kdy*dey + kiy*eyi;
-        ux = -ux;
-        if(fabs(ux) > 50){
-            ux = 50 * ux / fabs(ux);
-        }
-        if(fabs(uy) > 50){
-            uy = 50 * uy / fabs(uy);
-        }
-
         // save log
         static ofstream ofs_deg("output_deg");
-        ofs_deg << st.degx << "," << st.degy << endl;
+            ofs_deg << st.degx << "," << st.degy << endl;
         static ofstream ofs_ctl("output_ctl");
-        ofs_ctl << start_tx+rvx*t_interval << ",";
-        ofs_ctl << start_ty+rvy*t_interval << ",";
-        ofs_ctl << st.vision_tx << ",";
-        ofs_ctl << st.vision_ty << endl;
+            ofs_ctl << input << endl;
         static ofstream ofs_vision("output_vision");
-        ofs_vision << st.vision_tx << "," << st.vision_ty << "," << dtx << "," << dty << endl;
-        static ofstream ofs_e("output_e");
-        ofs_e << ex << "," << ey << "," << ux << "," << uy << endl;
+            ofs_vision << st.vision_tx << "," << st.vision_ty << "," << input.x() << input.y()  << endl;
 
         // if(!(msec_cnt % 30)){
         //     printf("%.2f %.2f %.2f | %.2f %.2f %.2f | %.2f | \n",st.degx,st.degy,st.degz,st.vision_tx,st.vision_ty,st.vision_tz,st.height);
@@ -303,8 +278,6 @@ void *timer_handler(void *ptr) {
         static int hover_cnt = 0;
         if(pxget_operate_mode() == PX_UP){
             pxset_visualselfposition(0, 0);
-            exi = 0;
-            eyi = 0;
             hover_cnt = 0;
         }
 
@@ -313,29 +286,19 @@ void *timer_handler(void *ptr) {
                 hover_cnt++;
             }
             else if (hover_cnt == 500) {
-                start_tx = st.vision_tx;
-                start_ty = st.vision_ty;
                 hover_cnt++;
                 cout << "start control" << endl;
-                move_cnt = 0;
-                t_interval = 0;
+                start_point << st.vision_tx,st.vision_ty;
+                flight_time = 0;
             }
-            else {
-                //pxset_dst_degx(ux);
-                //pxset_dst_degy(uy);
-                pxset_visioncontrol_xy(
-                        start_tx+rvx*t_interval,
-                        start_ty+rvy*t_interval);
-                move_cnt++;
+            else{
+                pxset_visioncontrol_xy(input.x(), input.y());
             }
         }
 
         static int prev_operatemode = PX_HALT;
         if((prev_operatemode == PX_UP) && (pxget_operate_mode() == PX_HOVER)) {
             pxset_visioncontrol_xy(st.vision_tx,st.vision_ty);
-            origin_tx = st.vision_tx;
-            origin_ty = st.vision_ty;
-            msec_cnt = 0;
         }
         prev_operatemode = pxget_operate_mode();  
 
@@ -345,7 +308,7 @@ void *timer_handler(void *ptr) {
             }      
             else if(pxget_operate_mode() == PX_HALT) {
                 pxset_rangecontrol_z(150);
-                pxset_operate_mode(PX_UP);
+                pxset_operate_mode(PX_UP);		   
             }      
         }
         if(pxget_battery() == 1) {
