@@ -39,9 +39,9 @@ public:
     // calculate edge between two color
     void detect_edge(Mat* in, Mat* out, Mat* edge);
     // calculate center of gravity from binary image
-    bool calc_g(Mat *src, Vector2f *g);
+    bool calc_g(Mat *src, Vector2f *g, Vector2f center, int range);
     // use HoughLineP and kmeans to detect two lines from edge image
-    int findLine(Mat *src, Vector2f g, Vector2f *norm_start1, Vector2f *norm1, Vector2f *norm_start2, Vector2f *norm2);
+    int findLine(Mat *src, Mat *in1_image, Vector2f *norm_start1, Vector2f *norm1, Vector2f *norm_start2, Vector2f *norm2);
     
 };
 
