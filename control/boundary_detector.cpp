@@ -10,15 +10,27 @@ using namespace cv;
 using namespace Eigen;
 
 BoundaryDetector::BoundaryDetector(){
-    blue_r = 0.77;
-    blue_g = -0.12;
-    blue_b = -0.63;
-    blue_th = 35;
 
-    yellow_r = -0.46;
-    yellow_g =  0.81;
-    yellow_b = -0.34;
-    yellow_th = 15;
+
+    blue_r = -0.82;
+    blue_g = 0.49;
+    blue_b = 0.29;
+    blue_th = 20;
+
+    yellow_r = -0.41;
+    yellow_g =  0.84;
+    yellow_b = -0.36;
+    yellow_th = 12;
+
+    //blue_r = 0.77;
+    //blue_g = -0.12;
+    //blue_b = -0.63;
+    //blue_th = 35;
+
+    //yellow_r = -0.46;
+    //yellow_g =  0.81;
+    //yellow_b = -0.34;
+    //yellow_th = 15;
 
     for(int i = 0;i < 30; i++)
         efilter[i] = 1;
