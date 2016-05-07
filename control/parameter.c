@@ -3,8 +3,8 @@
 
 void set_parameter() {
   px_pconfig param;
-  param.duty_hover = 1850;
-  param.duty_hover_max = 2250;
+  param.duty_hover = 2250;
+  param.duty_hover_max = 3250;
   param.duty_hover_min = 1450;
   param.duty_up = 2050;
   param.duty_down = 1500;
@@ -24,7 +24,7 @@ void set_parameter() {
   param.downtime_max = 3.0;
   param.dangz_rotspeed = 15.0;  
   param.featurecontrast_front = 35;
-  param.featurecontrast_bottom = 25;
+  param.featurecontrast_bottom = 30;
   param.pgain_degx = 1580;//1800:
   param.pgain_degy = 1580;//1800;
   param.pgain_degz = 2000;
