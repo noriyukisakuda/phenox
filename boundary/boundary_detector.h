@@ -43,7 +43,8 @@ public:
     // calculate the number of outside color near to the norm direction
     int count_direction(Mat *out, Vector2f center, Vector2f norm, int range);
     // use HoughLineP and kmeans to detect two lines from edge image
-    int findLine(Mat *src, Mat *in1_image, Vector2f *norm_start1, Vector2f *norm1, Vector2f *norm_start2, Vector2f *norm2);
+    int findLine(Mat *src, Mat *out1_image, Vector2f *norm_start1, Vector2f *norm1, Vector2f *norm_start2, Vector2f *norm2);
+    // int findLine(Mat *src, Mat *out1_image, Mat * in1_image, Vector2f *norm_start1, Vector2f *norm1, Vector2f *norm_start2, Vector2f *norm2);
     
 };
 
