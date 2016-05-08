@@ -125,7 +125,7 @@ int main(int argc, char **argv)
   while(1) {         
     if(pxget_imgfullwcheck(cameraid,&testImage) == 1) {	
       frames_count++;
-      cout << frames_count << endl;
+      // cout << frames_count << endl;
       mat = cvarrToMat(testImage);
       int gn = bd.get_norm(&mat, &norm_start, &norm, &norm_start2, &norm2);
 
@@ -209,7 +209,7 @@ void *timer_handler(void *ptr) {
         gettimeofday(&now, NULL);
         dt = (now.tv_sec - prev.tv_sec) + 
                 (now.tv_usec - prev.tv_usec) * 1.0E-6;
-        cout << dt << endl;
+        // cout << dt << endl;
         if(dt < 0){
             cout << "dt < 0" << endl;
             continue;
@@ -224,9 +224,9 @@ void *timer_handler(void *ptr) {
             norm2 = gnorm2;
             norm_start2 = gnorm_start2;
             boundary_cnt = gboundary_cnt;
-            cout << "boundary cnt = " << boundary_cnt << endl;
-            cout << "norm = \n" << norm << endl;
-            cout << "norm2 = \n" << norm2 << endl;
+            // cout << "boundary cnt = " << boundary_cnt << endl;
+            // cout << "norm = \n" << norm << endl;
+            // cout << "norm2 = \n" << norm2 << endl;
             pthread_mutex_unlock(&mutex);
         }
 
