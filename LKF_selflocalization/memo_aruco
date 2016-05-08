@@ -1,0 +1,10 @@
+g++ main1.cpp -Llib -Iinclude lib/libaruco.so.1.2.5  -lopencv_core -lopencv_highgui -std=c++11 -o test1
+
+
+g++ LKF_phenox.cpp -Llib -Iinclude lib/libaruco.so.1.2.5  -lopencv_core -lopencv_highgui -std=c++11 -I /home/rem/download/Eigen -o LKF_phenox
+
+
+g++ KF_test.cpp -Llib -Iinclude lib/libaruco.so.1.2.5  -lopencv_core -lopencv_highgui -std=c++0x -I /home/linaro/Downloads/Eigen/ -o KF_test
+
+g++ main1.cpp -Llib -Iinclude lib/libaruco.so.1.2.5  -lopencv_core -lopencv_highgui -std=c++0x -o test
+

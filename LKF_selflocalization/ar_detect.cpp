@@ -1,14 +1,30 @@
+//phenox part
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <stdint.h>
+#include <errno.h>
+#include <sys/mman.h>
+#include <signal.h>
+#include <sys/time.h>
+#include <termios.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+
+//AR part
+#include "ar_detect.h"
 #include <iostream>
 #include <Eigen/Core>
 #include <Eigen/Geometry>
-#include <stdlib.h>
-#include <stdio.h>
 #include <math.h>
 #include <opencv2/opencv.hpp>
 #include <aruco.h>
 #include <vector>
 #include <time.h>
-#include "ar_detect.h"
 
 using namespace Eigen;
 using namespace std;
@@ -47,8 +63,8 @@ AR_DETECT::AR_DETECT(){
 		 return outputImage;
 	}
 
-	Vector3f AR_DETECT::LKF(Mat outputImage,vector<Marker> markers,CameraParameters params,map<int,Vector3f> AR_id
-	){
+	Vector3f AR_DETECT::LKF(Mat outputImage,vector<Marker> markers,CameraParameters params,map<int,Vector3f> AR_id)
+	{
 		//定数
 		double t;
 		clock_t start;
@@ -92,6 +108,7 @@ AR_DETECT::AR_DETECT(){
 				t=double(end - start)/CLOCKS_PER_SEC;
 				cout << "duration"<< t << endl;
 				//速度の取得
+				//pxget_selfstate(&state);
 				//ダミーデータ
 				u(0,0)=0.0;
 				u(1,0)=0.0;
