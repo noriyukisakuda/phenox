@@ -10,25 +10,25 @@ using namespace cv;
 using namespace Eigen;
 
 BoundaryDetector::BoundaryDetector(){
-    blue_r = 0.77;
-    blue_g = -0.12;
-    blue_b = -0.63;
-    blue_th = 35;
-    
-    yellow_r = -0.46;
-    yellow_g =  0.81;
-    yellow_b = -0.34;
-    yellow_th = 15;
-
-    // blue_r = -0.82;
-    // blue_g = 0.49;
-    // blue_b = 0.29;
-    // blue_th = 20;
+    // blue_r = 0.77;
+    // blue_g = -0.12;
+    // blue_b = -0.63;
+    // blue_th = 35;
     //
-    // yellow_r = -0.41;
-    // yellow_g =  0.84;
-    // yellow_b = -0.36;
-    // yellow_th = 22;
+    // yellow_r = -0.46;
+    // yellow_g =  0.81;
+    // yellow_b = -0.34;
+    // yellow_th = 15;
+
+    blue_r = -0.82;
+    blue_g = 0.49;
+    blue_b = 0.29;
+    blue_th = 20;
+    
+    yellow_r = -0.41;
+    yellow_g =  0.84;
+    yellow_b = -0.36;
+    yellow_th = 22;
     //
     for(int i = 0;i < 30; i++)
         efilter[i] = 1;
@@ -132,14 +132,10 @@ int BoundaryDetector::count_direction(Mat *out, Vector2f center, Vector2f norm, 
             else{
                 Vector2f vecx(x, y);
                 vecx = vecx - center;
-                if((vecx - vecx.dot(norm) * norm).norm() < 40){
-                    if(vecx.dot(norm) > 0){
-                        cnt1++;
-                    }
-                    else{
-                        cnt2++;
-                    }
-                }
+                if(vecx.dot(norm) > 0 && (vecx - vecx.dot(norm) * norm).norm() < 10)
+                    cnt1++;
+                else
+                    cnt2++;
             }
         }
     }
@@ -225,6 +221,8 @@ int BoundaryDetector::findLine(Mat *src, Mat *out1_image, Vector2f *norm_start1,
                 norm_ << vec2.y(), -vec2.x();
             }
             norm_ /= norm_.norm();
+            norm_ *= count_direction(out1_image, *norm_start1, norm_, 30);
+            *norm_start1 *= skip_step_;
             *norm1 = norm_;
             return 1;
         }
@@ -232,11 +230,15 @@ int BoundaryDetector::findLine(Mat *src, Mat *out1_image, Vector2f *norm_start1,
             *norm_start1 = 0.5 * (start1 + end1);
             norm_ << vec1.y(), -vec1.x();
             norm_ /= norm_.norm();
+            norm_ *= count_direction(out1_image, *norm_start1, norm_, 30);
+            *norm_start1 *= skip_step_;
             *norm1 = norm_;
 
             *norm_start2 = 0.5 * (start2 + end2);
             norm_ << vec2.y(), -vec2.x();
             norm_ /= norm_.norm();
+            norm_ *= count_direction(out1_image, *norm_start1, norm_, 30);
+            *norm_start2 *= skip_step_;
             *norm2 = norm_;
             return 2;
         }
@@ -248,28 +250,16 @@ int BoundaryDetector::get_norm(Mat *org, Vector2f *norm_start1, Vector2f *norm1,
     Mat in1_image = Mat::zeros(Size(org->cols / skip_step_ + 1, org->rows / skip_step_ + 1), CV_8U);
     Mat out1_image = Mat::zeros(Size(org->cols / skip_step_ + 1, org->rows / skip_step_ + 1), CV_8U);
     Mat edge = Mat::zeros(Size(org->cols / skip_step_ + 1, org->rows / skip_step_ + 1), CV_8U);
-    Vector2f g(0, 0);
+
     extract_rgb(org, &in1_image, yellow_r, yellow_g, yellow_b, yellow_th);
     extract_rgb(org, &out1_image, blue_r, blue_g, blue_b, blue_th);
-    calc_g(&in1_image, &g, Vector2f(50, 50), 500);
     detect_edge(&out1_image, &in1_image, &edge);
 
-    // /*
     // imshow("out", out1_image * 120);
     // imshow("in", in1_image * 120);
     // imshow("edge", edge);
-    // out1_image = Mat::zeros(Size(org->cols / skip_step_ + 1, org->rows / skip_step_ + 1), CV_8U);
+    Vector2f g(0, 0);
     int find = findLine(&edge, &out1_image, norm_start1, norm1, norm_start2, norm2);
-
-    if(find == 1){
-        *norm1 = *norm1 * count_direction(&out1_image, g, *norm1, 80);
-    }
-    if(find == 2){
-        *norm1 = *norm1 * count_direction(&out1_image, g, *norm1, 80);
-        *norm2 = *norm2 * count_direction(&out1_image, g, *norm2, 80);
-    }
-    *norm_start1 *= skip_step_;
-    *norm_start2 *= skip_step_;
 
 
     return find;

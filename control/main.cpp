@@ -125,7 +125,7 @@ int main(int argc, char **argv)
   while(1) {         
     if(pxget_imgfullwcheck(cameraid,&testImage) == 1) {	
       frames_count++;
-      // cout << frames_count << endl;
+      //cout << frames_count << endl;
       mat = cvarrToMat(testImage);
       int gn = bd.get_norm(&mat, &norm_start, &norm, &norm_start2, &norm2);
 
@@ -190,6 +190,21 @@ static void setup_timer() {
     pthread_mutex_init(&mutex, NULL);
 }
 
+void bound(Vector2f &n, Vector2f &v) {
+    if(n.dot(v) > 0) {
+        return;
+    }
+    v += -2*(n.dot(v))*n;
+    cout << "n" << n << endl << endl;
+}
+
+void bound(Vector2f &n, Vector2f &n2, Vector2f &v) {
+    Vector2f new_n;
+    new_n = (n + n2);
+    new_n.normalize();
+    bound(new_n,v);
+}
+
 void *timer_handler(void *ptr) {
     if(timer_disable == 1) {
         return NULL;
@@ -209,14 +224,24 @@ void *timer_handler(void *ptr) {
         gettimeofday(&now, NULL);
         dt = (now.tv_sec - prev.tv_sec) + 
                 (now.tv_usec - prev.tv_usec) * 1.0E-6;
-        // cout << dt << endl;
         if(dt < 0){
             cout << "dt < 0" << endl;
             continue;
         }
         prev = now;
+        static double flight_time = 0;
+        flight_time += dt;
+
+        // vision control
+        px_selfstate st;
+        pxget_selfstate(&st);
+
+        static Vector2f v(0,50);
+        static Vector2f start_point(0,0);
         Vector2f norm, norm_start;
         Vector2f norm2, norm_start2;
+        static Vector2f input(0,0);
+
         int boundary_cnt = 0;
         if(pthread_mutex_trylock(&mutex) != EBUSY){
             norm = gnorm;
@@ -224,47 +249,34 @@ void *timer_handler(void *ptr) {
             norm2 = gnorm2;
             norm_start2 = gnorm_start2;
             boundary_cnt = gboundary_cnt;
-            // cout << "boundary cnt = " << boundary_cnt << endl;
-            // cout << "norm = \n" << norm << endl;
-            // cout << "norm2 = \n" << norm2 << endl;
+            //cout << "boundary cnt = " << boundary_cnt << endl;
+            //cout << "norm = \n" << norm << endl;
+            //cout << "norm2 = \n" << norm2 << endl;
             pthread_mutex_unlock(&mutex);
+
+            norm.x() = -norm.x();
+            if(boundary_cnt == 1){
+                bound(norm,v);
+                flight_time = 0;
+                start_point << st.vision_tx,st.vision_ty;
+            /*}else if(boundary_cnt == 2){
+                bound(norm,norm2,v);
+                flight_time = 0;
+                start_point << st.vision_tx,st.vision_ty;
+                */
+            }
         }
 
-
-
-        // vision control
-        double setdegx, setdegy;
-        px_selfstate st;
-        pxget_selfstate(&st);
+        input = start_point + flight_time*v;
+        cout << v.x() << ' ' << v.y() << endl;
         
-        double kpx = 0.05;
-        double kpy = 0.05;
-        double kdx = 0.3;
-        double kdy = 0.3;
-        double kix = 0.000003;
-        double kiy = 0.000003;
-
-        static double txi = 0;
-        static double tyi = 0;
-        txi += st.vision_tx;
-        tyi += st.vision_ty;
-        double uy = -kpx * st.vision_tx - kdx * st.vision_vx - kix * txi;
-        double ux = -kpy * st.vision_ty - kdy * st.vision_vy - kiy * tyi;
-        ux = -ux;
-        if(fabs(ux) > 50){
-            ux = 50 * ux / fabs(ux);
-        }
-        if(fabs(uy) > 50){
-            uy = 50 * uy / fabs(uy);
-        }
-
         // save log
         static ofstream ofs_deg("output_deg");
             ofs_deg << st.degx << "," << st.degy << endl;
-        static ofstream ofs_ctl("output_ctl");
-            ofs_ctl << setdegx << "," << setdegy << endl;
+        static ofstream ofs_ctl("output_v");
+            ofs_ctl << v.x() << "," << v.y() << "," << norm.x() << "," << norm.y() << endl;
         static ofstream ofs_vision("output_vision");
-            ofs_vision << st.vision_tx << "," << st.vision_ty << "," << ux << "," << uy << endl;
+            ofs_vision << st.vision_tx << "," << st.vision_ty << "," << input.x() << input.y()  << endl;
 
         // if(!(msec_cnt % 30)){
         //     printf("%.2f %.2f %.2f | %.2f %.2f %.2f | %.2f | \n",st.degx,st.degy,st.degz,st.vision_tx,st.vision_ty,st.vision_tz,st.height);
@@ -273,19 +285,22 @@ void *timer_handler(void *ptr) {
         static int hover_cnt = 0;
         if(pxget_operate_mode() == PX_UP){
             pxset_visualselfposition(0, 0);
-            txi = 0;
-            tyi = 0;
             hover_cnt = 0;
         }
 
         if(pxget_operate_mode() == PX_HOVER) {
-                if(hover_cnt < 100){
-                    hover_cnt++;
-                }
-                else{
-                    pxset_dst_degx(setdegx);
-                    pxset_dst_degy(setdegy);
-                }
+            if(hover_cnt < 500){
+                hover_cnt++;
+            }
+            else if (hover_cnt == 500) {
+                hover_cnt++;
+                cout << "start control" << endl;
+                start_point << st.vision_tx,st.vision_ty;
+                flight_time = 0;
+            }
+            else{
+                pxset_visioncontrol_xy(input.x(), input.y());
+            }
         }
 
         static int prev_operatemode = PX_HALT;
