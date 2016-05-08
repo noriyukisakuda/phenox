@@ -47,6 +47,7 @@ THE SOFTWARE.
 #include <fstream>
 #include <turbojpeg.h>
 #include "boundary_detector.h"
+#include "control.h"
 
 
 using namespace std;
@@ -190,20 +191,6 @@ static void setup_timer() {
     pthread_mutex_init(&mutex, NULL);
 }
 
-void bound(Vector2f &n, Vector2f &v) {
-    if(n.dot(v) > 0) {
-        return;
-    }
-    v += -2*(n.dot(v))*n;
-    cout << "n" << n << endl << endl;
-}
-
-void bound(Vector2f &n, Vector2f &n2, Vector2f &v) {
-    Vector2f new_n;
-    new_n = (n + n2);
-    new_n.normalize();
-    bound(new_n,v);
-}
 
 void *timer_handler(void *ptr) {
     if(timer_disable == 1) {
@@ -213,6 +200,7 @@ void *timer_handler(void *ptr) {
     static struct timeval now, prev;
     double dt = 0;
     clock_gettime(CLOCK_REALTIME, &_t);
+    static PxController ctrlr;
     while(1) {
         pxset_keepalive();
         pxset_systemlog();
@@ -229,15 +217,13 @@ void *timer_handler(void *ptr) {
             continue;
         }
         prev = now;
-        static double flight_time = 0;
-        flight_time += dt;
 
         // vision control
-        px_selfstate st;
+        static px_selfstate st;
+        static Vector2f pos;
         pxget_selfstate(&st);
+        pos << st.vision_tx, st.vision_ty;
 
-        static Vector2f v(0,50);
-        static Vector2f start_point(0,0);
         Vector2f norm, norm_start;
         Vector2f norm2, norm_start2;
         static Vector2f input(0,0);
@@ -254,35 +240,24 @@ void *timer_handler(void *ptr) {
             //cout << "norm2 = \n" << norm2 << endl;
             pthread_mutex_unlock(&mutex);
 
-            norm.x() = -norm.x();
-            if(boundary_cnt == 1){
-                bound(norm,v);
-                flight_time = 0;
-                start_point << st.vision_tx,st.vision_ty;
-            /*}else if(boundary_cnt == 2){
-                bound(norm,norm2,v);
-                flight_time = 0;
-                start_point << st.vision_tx,st.vision_ty;
-                */
-            }
+            ctrlr.boundHandler(boundary_cnt,norm,norm2,pos);
         }
+        cout << ctrlr.vx() << "," << ctrlr.vy() << endl;
 
-        input = start_point + flight_time*v;
-        cout << v.x() << ' ' << v.y() << endl;
-        
         // save log
         static ofstream ofs_deg("output_deg");
             ofs_deg << st.degx << "," << st.degy << endl;
         static ofstream ofs_ctl("output_v");
-            ofs_ctl << v.x() << "," << v.y() << "," << norm.x() << "," << norm.y() << endl;
+            ofs_ctl << ctrlr.vx() << "," << ctrlr.vy() << "," << norm.x() << "," << norm.y() << endl;
         static ofstream ofs_vision("output_vision");
-            ofs_vision << st.vision_tx << "," << st.vision_ty << "," << input.x() << input.y()  << endl;
+            ofs_vision << st.vision_tx << "," << st.vision_ty << "," << input.x() << "," << input.y() << endl;
 
         // if(!(msec_cnt % 30)){
         //     printf("%.2f %.2f %.2f | %.2f %.2f %.2f | %.2f | \n",st.degx,st.degy,st.degz,st.vision_tx,st.vision_ty,st.vision_tz,st.height);
         // } 
 
         static int hover_cnt = 0;
+        static Vector2f origin(0,0);
         if(pxget_operate_mode() == PX_UP){
             pxset_visualselfposition(0, 0);
             hover_cnt = 0;
@@ -293,19 +268,20 @@ void *timer_handler(void *ptr) {
                 hover_cnt++;
             }
             else if (hover_cnt == 500) {
-                hover_cnt++;
                 cout << "start control" << endl;
-                start_point << st.vision_tx,st.vision_ty;
-                flight_time = 0;
+                ctrlr.init(0,50,origin,pos);
+                hover_cnt++;
             }
             else{
-                pxset_visioncontrol_xy(input.x(), input.y());
+                input = ctrlr.controlStep(dt);
+                pxset_visioncontrol_xy(input.x(),input.y());
             }
         }
 
         static int prev_operatemode = PX_HALT;
         if((prev_operatemode == PX_UP) && (pxget_operate_mode() == PX_HOVER)) {
-            pxset_visioncontrol_xy(st.vision_tx,st.vision_ty);
+            origin << st.vision_tx, st.vision_ty;
+            pxset_visioncontrol_xy(origin.x(),origin.y());
         }
         prev_operatemode = pxget_operate_mode();  
 
