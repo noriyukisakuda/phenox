@@ -45,8 +45,9 @@ void PxController::setStartPoint(Vector2f pos) {
     start_point_ = pos;
 }
 
-Vector2f PxController::controlStep(double dt) {
+Vector2f PxController::controlStep(Vector2f &pos, double dt) {
     input_ = start_point_ + flight_time_*v_;
+    //input_ = pos + v_;
     addTime(dt);
     return input_;
 }

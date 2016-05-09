@@ -273,7 +273,7 @@ void *timer_handler(void *ptr) {
                 hover_cnt++;
             }
             else{
-                input = ctrlr.controlStep(dt);
+                input = ctrlr.controlStep(pos, dt);
                 pxset_visioncontrol_xy(input.x(),input.y());
             }
         }

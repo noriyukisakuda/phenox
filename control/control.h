@@ -43,7 +43,14 @@ public:
     void boundHandler(int boundary_cnt, Vector2f norm1, 
                             Vector2f norm2, Vector2f pos);
 
-    Vector2f controlStep(double dt);
+    Vector2f controlStep(Vector2f &pos, double dt);
+
+    float input_x() {
+        return input_.x();
+    }
+    float input_y() {
+        return input_.y();
+    }
 };
 
 #endif
