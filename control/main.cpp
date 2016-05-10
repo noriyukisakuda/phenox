@@ -126,8 +126,14 @@ int main(int argc, char **argv)
   while(1) {         
     if(pxget_imgfullwcheck(cameraid,&testImage) == 1) {	
       frames_count++;
+      static int image_count = 0;
       //cout << frames_count << endl;
       mat = cvarrToMat(testImage);
+      stringstream ss;
+      ss << "px_image" << image_count << ".png";
+      imwrite(ss.str(), mat);
+      image_count++;
+
       int gn = bd.get_norm(&mat, &norm_start, &norm, &norm_start2, &norm2);
 
       // critical section start--------------------------------------------
@@ -242,7 +248,7 @@ void *timer_handler(void *ptr) {
 
             ctrlr.boundHandler(boundary_cnt,norm,norm2,pos);
         }
-        cout << ctrlr.vx() << "," << ctrlr.vy() << endl;
+        //cout << ctrlr.vx() << "," << ctrlr.vy() << endl;
 
         // save log
         static ofstream ofs_deg("output_deg");
