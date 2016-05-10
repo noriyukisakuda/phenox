@@ -1,13 +1,13 @@
 #pragma once
 //送信データを生成するためのサンプル
-#include <../include/sio_client.h>
-#include <../include/Object.h>
+#include <sio_client.h>
+#include <Object.h>
 
 //送信データを生成するサンプル関数一覧(おそらく大抵は配列か辞書型で送るはず)
 // sio::Null makeSampleNull();//Nullの場合
 // sio::Boolean makeSampleBoolean();//真偽値の場合
-sio::Boolean makePxStart();//真偽値の場合
-sio::Boolean makePxBounce();//真偽値の場合
+bool makePxStart();//真偽値の場合
+bool makePxBounce();//真偽値の場合
 // sio::Integer makeSampleInteger();//整数の場合
 // sio::Float makeSampleFloat();//浮動小数の場合
 // sio::String makeSampleString();//文字列の場合
@@ -43,13 +43,13 @@ sio::Array makePxVelocity();//配列の場合
 // }
 
 //反射データの生成
-sio::Boolean makePxBounce(){
-	return sio::Boolean(true);
+bool makePxBounce(){
+	return true; 
 }
 
 //スタートの生成
-sio::Boolean makePxStart(){
-	return sio::Boolean(true);
+bool makePxStart(){
+	return true; 
 }
 
 
@@ -58,7 +58,7 @@ sio::Array makePxPosition(double px_position_x, double px_position_y){
 	sio::Array ret;//配列型の場合はsio::Array
 	//Arrayへの追加はadd(value)で行う。
 	ret.add(px_position_x)
-		.add(px_position_y)
+		.add(px_position_y);
 	return ret;
 }
 
@@ -67,6 +67,6 @@ sio::Array makePxVelocity(double px_velocity_x, double px_velocity_y){
 	sio::Array ret;//配列型の場合はsio::Array
 	//Arrayへの追加はadd(value)で行う。
 	ret.add(px_velocity_x)
-		.add(px_velocity_y)
+		.add(px_velocity_y);
 	return ret;
 }
