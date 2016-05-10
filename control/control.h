@@ -15,7 +15,7 @@ class PxController {
     double flight_time_;
 
     bool bound_locked_;
-    bool boost_count_;
+    int boost_count_;
 
 public:
 

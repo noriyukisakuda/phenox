@@ -126,13 +126,13 @@ int main(int argc, char **argv)
   while(1) {         
     if(pxget_imgfullwcheck(cameraid,&testImage) == 1) {	
       frames_count++;
-      static int image_count = 0;
+      //static int image_count = 0;
       //cout << frames_count << endl;
       mat = cvarrToMat(testImage);
-      stringstream ss;
-      ss << "px_image" << image_count << ".png";
-      imwrite(ss.str(), mat);
-      image_count++;
+      //stringstream ss;
+      //ss << "px_image" << image_count << ".png";
+      //imwrite(ss.str(), mat);
+      //image_count++;
 
       int gn = bd.get_norm(&mat, &norm_start, &norm, &norm_start2, &norm2);
 
@@ -275,7 +275,7 @@ void *timer_handler(void *ptr) {
             }
             else if (hover_cnt == 500) {
                 cout << "start control" << endl;
-                ctrlr.init(0,50,origin,pos);
+                ctrlr.init(0,1,origin,pos);
                 hover_cnt++;
             }
             else{
