@@ -10,21 +10,32 @@ using namespace cv;
 using namespace Eigen;
 
 BoundaryDetector::BoundaryDetector(){
-    blue_r = 0.77;
-    blue_g = -0.12;
-    blue_b = -0.63;
-    blue_th = 35;
-    
-    yellow_r = -0.46;
-    yellow_g =  0.81;
-    yellow_b = -0.34;
-    yellow_th = 15;
 
-    // blue_r = -0.82;
-    // blue_g = 0.49;
-    // blue_b = 0.29;
-    // blue_th = 20;
+    //blue_r =  -0.77;
+    //blue_g =  0.60;
+    //blue_b =  0.22;
+    //blue_th = 45;
+
+    yellow_r =  -0.439;
+    yellow_g =  0.82;
+    yellow_b =  -0.357;
+    yellow_th = 20;
+
+    //blue_r = 0.77;
+    //blue_g = -0.12;
+    //blue_b = -0.63;
+    //blue_th = 35;
     //
+    //yellow_r = -0.46;
+    //yellow_g =  0.81;
+    //yellow_b = -0.34;
+    //yellow_th = 15;
+
+    blue_r = -0.82;
+    blue_g = 0.49;
+    blue_b = 0.29;
+    blue_th = 20;
+    
     // yellow_r = -0.41;
     // yellow_g =  0.84;
     // yellow_b = -0.36;
@@ -249,8 +260,20 @@ int BoundaryDetector::get_norm(Mat *org, Vector2f *norm_start1, Vector2f *norm1,
     Mat out1_image = Mat::zeros(Size(org->cols / skip_step_ + 1, org->rows / skip_step_ + 1), CV_8U);
     Mat edge = Mat::zeros(Size(org->cols / skip_step_ + 1, org->rows / skip_step_ + 1), CV_8U);
     Vector2f g(0, 0);
-    extract_rgb(org, &in1_image, yellow_r, yellow_g, yellow_b, yellow_th);
     extract_rgb(org, &out1_image, blue_r, blue_g, blue_b, blue_th);
+    //extract_rgb(org, &in1_image, yellow_r, yellow_g, yellow_b, yellow_th);
+
+    static int count = 0;
+    stringstream ss;
+    ss << "yellow_image" << count << ".png";
+    imwrite(ss.str(), in1_image*120);
+
+    stringstream ss2;
+    ss2 << "blue_image" << count << ".png";
+    imwrite(ss2.str(), out1_image*120);
+    count++;
+
+
     calc_g(&in1_image, &g, Vector2f(50, 50), 500);
     detect_edge(&out1_image, &in1_image, &edge);
 
