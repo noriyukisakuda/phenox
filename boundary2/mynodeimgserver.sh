@@ -7,7 +7,7 @@ rm -f ~/nodejs/projects/imgserver/mysocket
 node ~/nodejs/projects/imgserver/server.js &
 sleep 3
 mount /dev/mmcblk0p1 /mnt
-~/phenox/work/may/main
+~/phenox/work/boundary2/main
 #~/phenox/work/nodeimgserver/main
 
 
