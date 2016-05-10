@@ -4,6 +4,7 @@
 #define BOOSTTIME 5
 #define BOOSTPARAM 3
 #define VNORM 70
+#define DBOUNDCNT 3
 
 
 void PxController::init(float v_init_x, float v_init_y,
@@ -13,6 +14,7 @@ void PxController::init(float v_init_x, float v_init_y,
     setStartPoint(pos);
     bound_locked_ = false;
     boost_count_ = BOOSTTIME+1;
+    dbound_lock_cnt = 0;
 }
 
 void PxController::addTime(double dt) {
@@ -33,9 +35,14 @@ int PxController::bound(Vector2f &n) {
 }
 
 int PxController::bound(Vector2f &n, Vector2f &n2) {
-    n += n2;
-    n.normalize();
-    return bound(n);
+    if(dbound_lock_cnt > DBOUNDCNT) {
+        dbound_lock_cnt = 0;
+        n += n2;
+        n.normalize();
+        return bound(n);
+    }else{
+        dbound_lock_cnt++;
+    }
 }
 
 void PxController::boundHandler(int boundary_cnt, 

@@ -16,6 +16,7 @@ class PxController {
 
     bool bound_locked_;
     int boost_count_;
+    int dbound_lock_cnt;
 
 public:
 
