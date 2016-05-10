@@ -220,7 +220,9 @@ void *timer_handler(void *ptr) {
     clock_gettime(CLOCK_REALTIME, &_t);
     static PxController ctrlr;
 
+    // --------------------------------------------------------------------------
     // SioClient initialization -------------------------------------------------
+    // --------------------------------------------------------------------------
     SioClientWrapper client;
     sio::message::ptr data;
     //発生するイベント名一覧をstd::vector<std::string>としてclientに渡す
@@ -237,7 +239,7 @@ void *timer_handler(void *ptr) {
     //データの送信宛先となる部屋名を設定する(Gameサーバなら例えば"Game")
     client.setDstRoom("Game");
     //URLを指定して接続開始
-    client.start("http://localhost:8000");
+    client.start("http://ailab-mayfestival2016-base2.herokuapp.com");
 
     while(1) {
         pxset_keepalive();
@@ -308,10 +310,12 @@ void *timer_handler(void *ptr) {
         Vector2f px_position(0, 0);
         Vector2f px_velocity(0, 0);
 
-        client.sendData("px_start", makePxStart());//
-        client.sendData("px_bounce", makePxBounce());//
-        client.sendData("px_position", makePxPosition());//
-        client.sendData("px_velocity", makePxVelocity());//
+	if(msec_cnt % 10 == 0){
+		client.sendData("px_start", makePxStart());//
+		client.sendData("px_bounce", makePxBounce());//
+		client.sendData("px_position", makePxPosition(px_position.x(), px_position.y()));//
+		client.sendData("px_velocity", makePxVelocity(px_velocity.x(), px_velocity.y()));//
+	}
         
 
 

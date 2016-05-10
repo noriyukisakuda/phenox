@@ -1,6 +1,6 @@
 #pragma once
-#include <../include/sio_client.h>
-#include <../include/Object.h>
+#include <sio_client.h>
+#include <Object.h>
 class SioClientWrapper{
 	//Socket.IO client object
 	sio::client client;

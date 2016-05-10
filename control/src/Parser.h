@@ -1,7 +1,7 @@
 #pragma once
 //受信データのsio::message::ptrから値を抽出するためのサンプル
-#include <../include/sio_client.h>
-#include <../include/Object.h>
+#include <sio_client.h>
+#include <Object.h>
 
 
 /*抽出サンプルでの格納先の変数*/
@@ -55,11 +55,18 @@ void parseDirection(sio::message::ptr data);
 //着陸命令が送信されてくる場合
 void parseDirection(sio::message::ptr data){
 	std::vector<sio::message::ptr> vector = data->get_vector();//外側のArrayからvectorを抽出
-        landing = vector[0]->get_bool();//vectorの要素を順に抽出してdouble型配列に代入
+	for (int i = 0; i < 2; ++i){
+		direction[i] = vector[i]->get_double();//vectorの要素を順に抽出してdouble型配列に代入
+    }
 }
 
+void parseLanding(sio::message::ptr data){
+        landing = data->get_bool();//vectorの要素を順に抽出してdouble型配列に代入
+}
+
+
 //方向ベクトルが送信されてくる場合
-void parseDirection(sio::message::ptr data){
+void parseVelocity(sio::message::ptr data){
 	//[0.2,-2.1,3.4]のように要素数2の実数配列としてくる場合
 	std::vector<sio::message::ptr> vector = data->get_vector();//外側のArrayからvectorを抽出
 	for (int i = 0; i < 2; ++i){
