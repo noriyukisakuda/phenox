@@ -5,9 +5,9 @@ CC = gcc
 CXX = g++
 
 CFLAGS = -g -I../../library/headers/ -lm `pkg-config --cflags opencv`
-CXXFLAGS = -Wall -O2
+CXXFLAGS = -Wall -O2 -std=C++0x
 
-LIBRARY_PATH = ../../library/px_library.a `pkg-config --libs opencv` -pthread -lturbojpeg
+LIBRARY_PATH = ../../library/px_library.a `pkg-config --libs opencv` -pthread -lturbojpeg -lsioclient
 
 OBJS = $(SRCS_CPP:.cpp=.o) $(SRCS_C:.c=.o) 
 

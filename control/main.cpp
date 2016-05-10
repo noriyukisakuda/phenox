@@ -49,6 +49,10 @@ THE SOFTWARE.
 #include "boundary_detector.h"
 #include "control.h"
 
+#include "src/SioClientWrapper.h"
+#include "src/Parser.h"//受信データのsio::message::ptrから値を抽出するためのサンプル
+#include "src/DataMaker.h"//送信データを生成するためのサンプル
+
 
 using namespace std;
 using namespace cv;
@@ -83,6 +87,7 @@ int main(int argc, char **argv)
   int i,j,count;
   count = 0;
 
+  // node image server settings ------------------------------------------------
   int client_sockfd;
   int len ;
   struct sockaddr_un address;
@@ -94,24 +99,7 @@ int main(int argc, char **argv)
   result = connect(client_sockfd , (struct sockaddr *)&address , len);
   if(result != 0) {exit(-1);}
 
-
-  pxinit_chain();
-  set_parameter();   
-  printf("CPU0:Start Initialization. Please do not move Phenox.\n");
-  while(!pxget_cpu1ready());
-  setup_timer();
-  printf("CPU0:Finished Initialization.\n");
-  
-  Mat mat;
-
   int param[]={CV_IMWRITE_JPEG_QUALITY,70};
-  IplImage *testImage;    
-  count = 0;
-
-  pxset_led(0,1); 
-  const int ftmax = 200;
-  px_imgfeature *ft =(px_imgfeature *)calloc(ftmax,sizeof(px_imgfeature));
-  int ftstate = 0;
 
   long unsigned int buffer_size = 128000;
   unsigned char compressed_buffer_memory[128000];
@@ -121,8 +109,32 @@ int main(int argc, char **argv)
   int frames_count = 0;
   double fps = 0.0;
   double last_time = get_time();
+
+
+  // phenox initialization -----------------------------------------------------
+  pxinit_chain();
+  set_parameter();   
+  printf("CPU0:Start Initialization. Please do not move Phenox.\n");
+  while(!pxget_cpu1ready());
+  setup_timer();
+  printf("CPU0:Finished Initialization.\n");
+  
+
+  // image ---------------------------------------------------------------------
+  IplImage *testImage;    
+  count = 0;
+
+  pxset_led(0,1); 
+  const int ftmax = 200;
+  px_imgfeature *ft =(px_imgfeature *)calloc(ftmax,sizeof(px_imgfeature));
+  int ftstate = 0;
+
+  // for boundary detector ----------------------------------------------------
+  Mat mat;
   BoundaryDetector bd;
   Vector2f norm, norm_start, norm_end, norm2, norm_start2, norm_end2;
+
+  // main loop ----------------------------------------------------------------
   while(1) {         
     if(pxget_imgfullwcheck(cameraid,&testImage) == 1) {	
       frames_count++;
@@ -207,6 +219,26 @@ void *timer_handler(void *ptr) {
     double dt = 0;
     clock_gettime(CLOCK_REALTIME, &_t);
     static PxController ctrlr;
+
+    // SioClient initialization -------------------------------------------------
+    SioClientWrapper client;
+    sio::message::ptr data;
+    //発生するイベント名一覧をstd::vector<std::string>としてclientに渡す
+    std::vector<std::string> eventList(0);
+    eventList.push_back("landing");
+    eventList.push_back("direction");
+    eventList.push_back("px_bounce");
+    eventList.push_back("px_start");
+    eventList.push_back("px_position");
+    eventList.push_back("px_velocity");
+    client.setEventList(eventList);
+    //自身を表す部屋名を設定する(Phenoxなら例えば"Phenox"と決める)
+    client.setMyRoom("Phenox");
+    //データの送信宛先となる部屋名を設定する(Gameサーバなら例えば"Game")
+    client.setDstRoom("Game");
+    //URLを指定して接続開始
+    client.start("http://localhost:8000");
+
     while(1) {
         pxset_keepalive();
         pxset_systemlog();
@@ -234,6 +266,9 @@ void *timer_handler(void *ptr) {
         Vector2f norm2, norm_start2;
         static Vector2f input(0,0);
 
+        // -------------------------------------------------------------------
+        // get boundary norm -------------------------------------------------
+        // -------------------------------------------------------------------
         int boundary_cnt = 0;
         if(pthread_mutex_trylock(&mutex) != EBUSY){
             norm = gnorm;
@@ -248,6 +283,38 @@ void *timer_handler(void *ptr) {
 
             ctrlr.boundHandler(boundary_cnt,norm,norm2,pos);
         }
+
+        // --------------------------------------------------------------------
+        // get landing and direction-------------------------------------------
+        // --------------------------------------------------------------------
+       
+        //"landing"に対応するデータが来ているかチェック
+        if (client.isUpdated("landing")){
+                data = client.getData("landing");//データをsio::message::ptrとして取得
+                parseLanding(data);//データ抽出用関数に渡す
+                std::cout << "landing=" << landing << std::endl;
+        }
+        //"direction"に対応するデータが来ているかチェック
+        if (client.isUpdated("direction")){
+                data = client.getData("direction");//データをsio::message::ptrとして取得
+                parseDirection(data);//データ抽出用関数に渡す
+                std::cout << "direction = [" << direction[0] << ", " << direction[1] << "]" << std::endl;
+        }
+
+        // --------------------------------------------------------------------
+        // Sample of data sending ---------------------------------------------
+        // --------------------------------------------------------------------
+        // 送りたいところに移動してね
+        Vector2f px_position(0, 0);
+        Vector2f px_velocity(0, 0);
+
+        client.sendData("px_start", makePxStart());//
+        client.sendData("px_bounce", makePxBounce());//
+        client.sendData("px_position", makePxPosition());//
+        client.sendData("px_velocity", makePxVelocity());//
+        
+
+
         //cout << ctrlr.vx() << "," << ctrlr.vy() << endl;
 
         // save log
