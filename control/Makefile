@@ -1,5 +1,5 @@
 SRCS_C = $(shell find . -name "*.c")
-SRCS_CPP = $(shell find . -name "*.cpp")
+SRCS_CPP = $(shell find . -name "*.cpp" )
 
 CC = gcc
 CXX = g++
@@ -20,6 +20,7 @@ all:$(OBJS)
 
 %.o:%.c
 	$(CC) $(CFLAGS) -c $< -o $@
+
 
 %.o:%.cpp
 	$(CXX) $(CXXFLAGS) -c $< -o $@
