@@ -40,11 +40,13 @@ public:
 
     void setStartPoint(Vector2f pos);
 
+    void changeVel(double direction[2], Vector2f &pos);
+
     int bound(Vector2f &n);
 
     int bound(Vector2f &n, Vector2f &n2);
 
-    void boundHandler(int boundary_cnt, Vector2f norm1, 
+    bool boundHandler(int boundary_cnt, Vector2f norm1, 
                             Vector2f norm2, Vector2f pos);
 
     Vector2f controlStep(Vector2f &pos, double dt);

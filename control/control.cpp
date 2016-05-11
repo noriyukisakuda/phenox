@@ -1,10 +1,10 @@
 #include "control.h"
 #include <iostream>
 #define BOUNDLOCKTIME 2
-#define BOOSTTIME 5
-#define BOOSTPARAM 3
-#define VNORM 70
-#define DBOUNDCNT 3
+#define BOOSTTIME 10
+#define BOOSTPARAM 5
+#define VNORM 100
+#define DBOUNDCNT 2
 
 
 void PxController::init(float v_init_x, float v_init_y,
@@ -21,6 +21,14 @@ void PxController::addTime(double dt) {
     flight_time_ += dt;
 }
 
+void PxController::changeVel(double direction[2], Vector2f &pos) {
+    v_ << direction[0], direction[1];
+    setStartPoint(pos);
+    boost_count_ = 0;
+    std::cout << "----bound by game----- "<< std::endl;
+    std::cout<< " v:" << v_.x() << "," << v_.y() << std::endl;
+}
+
 int PxController::bound(Vector2f &n) {
     n.x() = -n.x();
     if(n.dot(v_) >= 0) {
@@ -30,26 +38,30 @@ int PxController::bound(Vector2f &n) {
     bound_locked_ = true;
     std::cout << "----bound----- "<< std::endl;
     std::cout << " n:" << n.x() << "," << n.y() << std::endl;
-    std::cout << " v:" << v_.x() << "," << v_.y() << std::endl;
+    std::cout<< " v:" << v_.x() << "," << v_.y() << std::endl;
     return 0;
 }
 
 int PxController::bound(Vector2f &n, Vector2f &n2) {
     if(dbound_lock_cnt > DBOUNDCNT) {
+        std::cout << "----double bound unlocked "<< std::endl;
         dbound_lock_cnt = 0;
         n += n2;
         n.normalize();
         return bound(n);
     }else{
+        std::cout << "----double bound locked "<< std::endl;
+        std::cout << "    count:" << dbound_lock_cnt << std::endl;
         dbound_lock_cnt++;
+        return 1;
     }
 }
 
-void PxController::boundHandler(int boundary_cnt, 
+bool PxController::boundHandler(int boundary_cnt, 
         Vector2f norm1, Vector2f norm2 ,Vector2f pos) {
     int bounded=1;
     if (boundary_cnt == 0 || bound_locked_) {
-        return;
+        return false;
     }else{
         if (boundary_cnt == 1) {
             bounded = bound(norm1);
@@ -60,6 +72,9 @@ void PxController::boundHandler(int boundary_cnt,
     if(bounded == 0){
         setStartPoint(pos);
         boost_count_ = 0;
+        return true;
+    }else{
+        return false;
     }
 }
 
