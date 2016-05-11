@@ -14,6 +14,9 @@ class PxController {
 
     double flight_time_;
 
+    bool bound_locked_;
+    int boost_count_;
+
 public:
 
     PxController(){
@@ -36,9 +39,9 @@ public:
 
     void setStartPoint(Vector2f pos);
 
-    void bound(Vector2f &n);
+    int bound(Vector2f &n);
 
-    void bound(Vector2f &n, Vector2f &n2);
+    int bound(Vector2f &n, Vector2f &n2);
 
     void boundHandler(int boundary_cnt, Vector2f norm1, 
                             Vector2f norm2, Vector2f pos);
@@ -51,6 +54,8 @@ public:
     float input_y() {
         return input_.y();
     }
+
+    void checkBoundLock();
 };
 
 #endif

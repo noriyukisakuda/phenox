@@ -50,12 +50,11 @@ class AR_DETECT{
   	MarkerDetector detector;
   	vector<Marker> markers;
 
-
-    AR_DETECT();
+    AR_DETECT();  //コンストラクタ
   	CameraParameters CameraLoad(Mat frame); //カメラロード
   	vector<Marker> ARDetect(Mat frame, CameraParameters params);//マーカーを認識する
   	Mat outPut(Mat frame);
-    	Vector3f LKF(Mat outputImage,vector<Marker> markers,CameraParameters params,map<int,Vector3f> AR_id);
+    Vector3f LKF(Mat outputImage,vector<Marker> markers,CameraParameters params,map<int,Vector3f> AR_id);
     };
 
 #endif

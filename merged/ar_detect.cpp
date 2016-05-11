@@ -39,47 +39,39 @@ AR_DETECT::AR_DETECT(){
 	Sigma = Matrix3f::Zero();
 	y     = VectorXf(N3);
 	map<int,Vector3f> AR_id;
+
+	CameraParameters params;
+	MarkerDetector detector;
+	vector<Marker> markers;
 	}
 
-	CameraParameters AR_DETECT::CameraLoad(Mat frame){
+CameraParameters AR_DETECT::CameraLoad(Mat frame){
 		// カメラパラメタのロード
-		CameraParameters params;
+		//CameraParameters params;
 		params.readFromXMLFile("./intrinsics.yml");
 		params.resize(frame.size());
 		return params;
 	}
 
-	vector<Marker> AR_DETECT::ARDetect(Mat frame, CameraParameters params){
+vector<Marker> AR_DETECT::ARDetect(Mat frame, CameraParameters params){
 		// マーカを認識する
-		MarkerDetector detector;
-		vector<Marker> markers;
+		//MarkerDetector detector;
+		//vector<Marker> markers;
 		const float markerSize = 0.05f; //マーカーサイズに合わせて変更する
 		detector.detect(frame, markers, params, markerSize);
 	  return markers;
 	}
 
-	Mat AR_DETECT::outPut(Mat frame){
+Mat AR_DETECT::outPut(Mat frame){
 		 Mat outputImage=frame.clone();
 		 return outputImage;
 	}
 
-	Vector3f AR_DETECT::LKF(Mat outputImage,vector<Marker> markers,CameraParameters params,map<int,Vector3f> AR_id)
+Vector3f AR_DETECT::LKF(Mat outputImage,vector<Marker> markers,CameraParameters params,map<int,Vector3f> AR_id)
 	{
 		//定数
-		double t;
 		clock_t start;
 		clock_t end;
-		Vector3f zero ;
-		Matrix3f F,G,Q;
-		zero = Vector3f::Zero();
-		F  = Matrix3f::Identity();
-		G  = Matrix3f::Identity();
-		Q  = Matrix3f::Identity();
-		//変数
-		Vector3f u,mu,mu_;
-		Matrix3f Sigma,Sigma_;
-		//Sigma　共分散行列
-		Sigma= Matrix3f::Zero();
 		vector<float> Y;
 		vector<int>  ID;
 		for (auto&& marker : markers) {
