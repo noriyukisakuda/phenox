@@ -48,6 +48,7 @@ THE SOFTWARE.
 #include <turbojpeg.h>
 #include "boundary_detector.h"
 #include "control.h"
+#include "ar_detect.h"
 
 //AR part
 #include "ar_detect.h"
@@ -60,12 +61,16 @@ THE SOFTWARE.
 #include <vector>
 #include <time.h>
 
-using namespace aruco;
+#include "src/SioClientWrapper.h"
+#include "src/Parser.h"//受信データのsio::message::ptrから値を抽出するためのサンプル
+#include "src/DataMaker.h"//送信データを生成するためのサンプル
 
 
 using namespace std;
 using namespace cv;
 using namespace Eigen;
+using namespace aruco;
+
 
 static void setup_timer();
 
@@ -78,6 +83,8 @@ Vector2f gnorm(0, 0);
 Vector2f gnorm2(0, 0);
 Vector2f gnorm_start(0, 0);
 Vector2f gnorm_start2(0, 0);
+
+Vector3f gmu(0,0,0);
 int gboundary_cnt = 0;
 
 // const px_cameraid cameraid = PX_FRONT_CAM;
@@ -91,15 +98,12 @@ double get_time() {
     return (tv.tv_sec) * 1000 + (tv.tv_usec) / 1000 ; 
 }
 
-//AR pos declaration
-map<int,Vector3f> AR_id;
-
-
 int main(int argc, char **argv)
 {
   int i,j,count;
   count = 0;
 
+  // node image server settings ------------------------------------------------
   int client_sockfd;
   int len ;
   struct sockaddr_un address;
@@ -111,61 +115,7 @@ int main(int argc, char **argv)
   result = connect(client_sockfd , (struct sockaddr *)&address , len);
   if(result != 0) {exit(-1);}
 
-
-  pxinit_chain();
-  set_parameter();   
-  printf("CPU0:Start Initialization. Please do not move Phenox.\n");
-  while(!pxget_cpu1ready());
-  setup_timer();
-  printf("CPU0:Finished Initialization.\n");
-  
-  //ARマーカーの位置の場所登録随時追加
-  map<int,Vector3f> AR_id;
-  Vector3f v0(-0.18,0.18,0.0);
-  Vector3f v10(0.18,0.18,0.0);
-  Vector3f v20(-0.18,-0.18,0.0);
-  Vector3f v30(0.18,-0.18,0.0);
-  AR_id[0] =  v0;
-  AR_id[10]=  v10;
-  AR_id[20]=  v20;
-  AR_id[30]=  v30;	
-   //定数
-  double t;
-  clock_t start;
-  clock_t end;
-  Vector3f zero ;
-  Matrix3f F,G,Q;
-  zero = Vector3f::Zero();
-  F  = Matrix3f::Identity();
-  G  = Matrix3f::Identity();
-  Q  = Matrix3f::Identity();
-  //変数
-  Vector3f u,mu,mu_;
-  Matrix3f Sigma,Sigma_;
-  //Sigma　共分散行列
-  Sigma= Matrix3f::Zero();
-  //観測情報の取得
-  cout<<3<<endl;
-  start =0.0;
-  cout<<4<<endl;
-  AR_DETECT *ad;
-  ad = new AR_DETECT;
-  delete ad;
-
-
-
-  Mat mat;
-
-  IplImage *testImage = cvCreateImage(cvSize(320,240), IPL_DEPTH_8S, 3);
   int param[]={CV_IMWRITE_JPEG_QUALITY,70};
-  count = 0;
-
-
-
-  pxset_led(0,1); 
-  const int ftmax = 200;
-  px_imgfeature *ft =(px_imgfeature *)calloc(ftmax,sizeof(px_imgfeature));
-  int ftstate = 0;
 
   long unsigned int buffer_size = 128000;
   unsigned char compressed_buffer_memory[128000];
@@ -175,25 +125,69 @@ int main(int argc, char **argv)
   int frames_count = 0;
   double fps = 0.0;
   double last_time = get_time();
+
+
+  // phenox initialization -----------------------------------------------------
+  pxinit_chain();
+  set_parameter();   
+  printf("CPU0:Start Initialization. Please do not move Phenox.\n");
+  while(!pxget_cpu1ready());
+  setup_timer();
+  printf("CPU0:Finished Initialization.\n");
+  
+
+  // image ---------------------------------------------------------------------
+  IplImage *testImage;    
+  count = 0;
+
+  pxset_led(0,1); 
+  const int ftmax = 200;
+  px_imgfeature *ft =(px_imgfeature *)calloc(ftmax,sizeof(px_imgfeature));
+  int ftstate = 0;
+
+  // for boundary detector ----------------------------------------------------
+  Mat mat;
   BoundaryDetector bd;
   Vector2f norm, norm_start, norm_end, norm2, norm_start2, norm_end2;
+
+
+  //for ar detection ----------------------------------------------------------
+  map<int,Vector3f> AR_id;
+  Vector3f v0(-0.18,0.18,0.0);
+  Vector3f v10(0.18,0.18,0.0);
+  Vector3f v20(-0.18,-0.18,0.0);
+  Vector3f v30(0.18,-0.18,0.0);
+  AR_id[0] =  v0;
+  AR_id[10]=  v10;
+  AR_id[20]=  v20;
+  AR_id[30]=  v30;
+  Vector3f mu;
+  double t;
+  clock_t start;
+  clock_t end;
+  start =0.0;
+  AR_DETECT *ad;
+  ad = new AR_DETECT;
+
+  // main loop ----------------------------------------------------------------
   while(1) {         
     if(pxget_imgfullwcheck(cameraid,&testImage) == 1) {	
       frames_count++;
+      //static int image_count = 0;
       //cout << frames_count << endl;
       mat = cvarrToMat(testImage);
-      //marker detecting phase
-	 //カメラのパラメーター設定
-        CameraParameters params = ad->CameraLoad(mat);
-        //マーカーを認識
-        vector<Marker> markers  = ad->ARDetect(mat,params);
-        //認識結果を書き出す
-        Mat outputImage =ad->outPut(mat);
-        //位置を推定する
-        ad->LKF(outputImage,markers,params,AR_id);
-     //Line detecting phase
+      //stringstream ss;
+      //ss << "px_image" << image_count << ".png";
+      //imwrite(ss.str(), mat);
+      //image_count++;
+
       int gn = bd.get_norm(&mat, &norm_start, &norm, &norm_start2, &norm2);
 
+      CameraParameters params = ad->CameraLoad(mat);
+      vector<Marker> markers  = ad->ARDetect(mat,params);
+      Mat outputImage =ad->outPut(mat);
+      mu = ad->LKF(outputImage,markers,params,AR_id);
+      
       // critical section start--------------------------------------------
       pthread_mutex_lock(&mutex);
       gboundary_cnt = gn;
@@ -202,6 +196,7 @@ int main(int argc, char **argv)
       gnorm_start = norm_start;
       gnorm_start2 = norm_start2;
       gboundary_cnt = gn;
+      gmu = mu ;
       pthread_mutex_unlock(&mutex);
       // critical section end--------------------------------------------
       //
@@ -245,7 +240,7 @@ int main(int argc, char **argv)
     }             
   }
   usleep(2000);
-
+  delete ad;
 }
 
 static void setup_timer() {
@@ -265,6 +260,28 @@ void *timer_handler(void *ptr) {
     double dt = 0;
     clock_gettime(CLOCK_REALTIME, &_t);
     static PxController ctrlr;
+
+    // --------------------------------------------------------------------------
+    // SioClient initialization -------------------------------------------------
+    // --------------------------------------------------------------------------
+    SioClientWrapper client;
+    sio::message::ptr data;
+    //発生するイベント名一覧をstd::vector<std::string>としてclientに渡す
+    std::vector<std::string> eventList(0);
+    eventList.push_back("landing");
+    eventList.push_back("direction");
+    eventList.push_back("px_bounce");
+    eventList.push_back("px_start");
+    eventList.push_back("px_position");
+    eventList.push_back("px_velocity");
+    client.setEventList(eventList);
+    //自身を表す部屋名を設定する(Phenoxなら例えば"Phenox"と決める)
+    client.setMyRoom("Phenox");
+    //データの送信宛先となる部屋名を設定する(Gameサーバなら例えば"Game")
+    client.setDstRoom("Game");
+    //URLを指定して接続開始
+    client.start("http://ailab-mayfestival2016-base2.herokuapp.com");
+
     while(1) {
         pxset_keepalive();
         pxset_systemlog();
@@ -290,15 +307,20 @@ void *timer_handler(void *ptr) {
 
         Vector2f norm, norm_start;
         Vector2f norm2, norm_start2;
-        static Vector2f input(0,0);
+        Vector3f mu;
+	static Vector2f input(0,0);
 
+        // -------------------------------------------------------------------
+        // get boundary norm -------------------------------------------------
+        // -------------------------------------------------------------------
         int boundary_cnt = 0;
         if(pthread_mutex_trylock(&mutex) != EBUSY){
             norm = gnorm;
             norm_start = gnorm_start;
             norm2 = gnorm2;
             norm_start2 = gnorm_start2;
-            boundary_cnt = gboundary_cnt;
+            boundary_cnt = gboundary_cnt;	
+	    mu=gmu;
             //cout << "boundary cnt = " << boundary_cnt << endl;
             //cout << "norm = \n" << norm << endl;
             //cout << "norm2 = \n" << norm2 << endl;
@@ -306,7 +328,41 @@ void *timer_handler(void *ptr) {
 
             ctrlr.boundHandler(boundary_cnt,norm,norm2,pos);
         }
-        cout << ctrlr.vx() << "," << ctrlr.vy() << endl;
+
+        // --------------------------------------------------------------------
+        // get landing and direction-------------------------------------------
+        // --------------------------------------------------------------------
+       
+        //"landing"に対応するデータが来ているかチェック
+        if (client.isUpdated("landing")){
+                data = client.getData("landing");//データをsio::message::ptrとして取得
+                parseLanding(data);//データ抽出用関数に渡す
+                std::cout << "landing=" << landing << std::endl;
+        }
+        //"direction"に対応するデータが来ているかチェック
+        if (client.isUpdated("direction")){
+                data = client.getData("direction");//データをsio::message::ptrとして取得
+                parseDirection(data);//データ抽出用関数に渡す
+                std::cout << "direction = [" << direction[0] << ", " << direction[1] << "]" << std::endl;
+        }
+
+        // --------------------------------------------------------------------
+        // Sample of data sending ---------------------------------------------
+        // --------------------------------------------------------------------
+        // 送りたいところに移動してね
+        Vector2f px_position(mu[0], mu[1]);
+        Vector2f px_velocity(0, 0);
+
+	if(msec_cnt % 10 == 0){
+		client.sendData("px_start", makePxStart());//
+		client.sendData("px_bounce", makePxBounce());//
+		client.sendData("px_position", makePxPosition(px_position.x(), px_position.y()));//
+		client.sendData("px_velocity", makePxVelocity(px_velocity.x(), px_velocity.y()));//
+	}
+        
+
+
+        //cout << ctrlr.vx() << "," << ctrlr.vy() << endl;
 
         // save log
         static ofstream ofs_deg("output_deg");
@@ -333,7 +389,7 @@ void *timer_handler(void *ptr) {
             }
             else if (hover_cnt == 500) {
                 cout << "start control" << endl;
-                ctrlr.init(0,50,origin,pos);
+                ctrlr.init(0,1,origin,pos);
                 hover_cnt++;
             }
             else{
