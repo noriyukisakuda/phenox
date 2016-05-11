@@ -57,7 +57,7 @@ vector<Marker> AR_DETECT::ARDetect(Mat frame, CameraParameters params){
 		// マーカを認識する
 		//MarkerDetector detector;
 		//vector<Marker> markers;
-		const float markerSize = 0.05f; //マーカーサイズに合わせて変更する
+		const float markerSize = 0.185f; //マーカーサイズに合わせて変更する
 		detector.detect(frame, markers, params, markerSize);
 	  return markers;
 	}
@@ -98,7 +98,7 @@ Vector3f AR_DETECT::LKF(Mat outputImage,vector<Marker> markers,CameraParameters 
 				//予測
 				end = clock();
 				t=double(end - start)/CLOCKS_PER_SEC;
-				cout << "duration"<< t << endl;
+				//cout << "duration"<< t << endl;
 				//速度の取得
 				//pxget_selfstate(&state);
 				//ダミーデータ
