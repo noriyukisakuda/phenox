@@ -3,7 +3,7 @@
 
 void set_parameter() {
   px_pconfig param;
-  param.duty_hover = 2250;
+  param.duty_hover = 1850;
   param.duty_hover_max = 3250;
   param.duty_hover_min = 1450;
   param.duty_up = 2050;

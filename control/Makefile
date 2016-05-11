@@ -1,13 +1,13 @@
 SRCS_C = $(shell find . -name "*.c")
-SRCS_CPP = $(shell find . -name "*.cpp")
+SRCS_CPP = $(shell find . -name "*.cpp" )
 
 CC = gcc
 CXX = g++
 
-CFLAGS = -g -I../../library/headers/ -lm `pkg-config --cflags opencv`
-CXXFLAGS = -Wall -O2
+CFLAGS = -g -I../../library/headers/ -Iinclude -lm `pkg-config --cflags opencv`
+CXXFLAGS = -Wall -O2 -std=c++0x
 
-LIBRARY_PATH = ../../library/px_library.a `pkg-config --libs opencv` -pthread -lturbojpeg
+LIBRARY_PATH = ../../library/px_library.a `pkg-config --libs opencv` -pthread -lturbojpeg libsioclient.a
 
 OBJS = $(SRCS_CPP:.cpp=.o) $(SRCS_C:.c=.o) 
 
@@ -21,11 +21,12 @@ all:$(OBJS)
 %.o:%.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
+
 %.o:%.cpp
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+	$(CXX) $(CXXFLAGS) $(CFLAGS) -c $< -o $@
 
 main.o:main.cpp
-	$(CXX) $(CFLAGS) -c $< -o $@
+	$(CXX) $(CXXFLAGS) $(CFLAGS) -c $< -o $@
 
 clean:
 	rm -f $(OBJS) $(TARGET)

@@ -47,6 +47,11 @@ THE SOFTWARE.
 #include <fstream>
 #include <turbojpeg.h>
 #include "boundary_detector.h"
+#include "control.h"
+
+#include "src/SioClientWrapper.h"
+#include "src/Parser.h"//受信データのsio::message::ptrから値を抽出するためのサンプル
+#include "src/DataMaker.h"//送信データを生成するためのサンプル
 
 
 using namespace std;
@@ -82,6 +87,7 @@ int main(int argc, char **argv)
   int i,j,count;
   count = 0;
 
+  // node image server settings ------------------------------------------------
   int client_sockfd;
   int len ;
   struct sockaddr_un address;
@@ -93,24 +99,7 @@ int main(int argc, char **argv)
   result = connect(client_sockfd , (struct sockaddr *)&address , len);
   if(result != 0) {exit(-1);}
 
-
-  pxinit_chain();
-  set_parameter();   
-  printf("CPU0:Start Initialization. Please do not move Phenox.\n");
-  while(!pxget_cpu1ready());
-  setup_timer();
-  printf("CPU0:Finished Initialization.\n");
-  
-  Mat mat;
-
   int param[]={CV_IMWRITE_JPEG_QUALITY,70};
-  IplImage *testImage;    
-  count = 0;
-
-  pxset_led(0,1); 
-  const int ftmax = 200;
-  px_imgfeature *ft =(px_imgfeature *)calloc(ftmax,sizeof(px_imgfeature));
-  int ftstate = 0;
 
   long unsigned int buffer_size = 128000;
   unsigned char compressed_buffer_memory[128000];
@@ -120,13 +109,43 @@ int main(int argc, char **argv)
   int frames_count = 0;
   double fps = 0.0;
   double last_time = get_time();
+
+
+  // phenox initialization -----------------------------------------------------
+  pxinit_chain();
+  set_parameter();   
+  printf("CPU0:Start Initialization. Please do not move Phenox.\n");
+  while(!pxget_cpu1ready());
+  setup_timer();
+  printf("CPU0:Finished Initialization.\n");
+  
+
+  // image ---------------------------------------------------------------------
+  IplImage *testImage;    
+  count = 0;
+
+  pxset_led(0,1); 
+  const int ftmax = 200;
+  px_imgfeature *ft =(px_imgfeature *)calloc(ftmax,sizeof(px_imgfeature));
+  int ftstate = 0;
+
+  // for boundary detector ----------------------------------------------------
+  Mat mat;
   BoundaryDetector bd;
   Vector2f norm, norm_start, norm_end, norm2, norm_start2, norm_end2;
+
+  // main loop ----------------------------------------------------------------
   while(1) {         
     if(pxget_imgfullwcheck(cameraid,&testImage) == 1) {	
       frames_count++;
+      //static int image_count = 0;
       //cout << frames_count << endl;
       mat = cvarrToMat(testImage);
+      //stringstream ss;
+      //ss << "px_image" << image_count << ".png";
+      //imwrite(ss.str(), mat);
+      //image_count++;
+
       int gn = bd.get_norm(&mat, &norm_start, &norm, &norm_start2, &norm2);
 
       // critical section start--------------------------------------------
@@ -190,20 +209,6 @@ static void setup_timer() {
     pthread_mutex_init(&mutex, NULL);
 }
 
-void bound(Vector2f &n, Vector2f &v) {
-    if(n.dot(v) > 0) {
-        return;
-    }
-    v += -2*(n.dot(v))*n;
-    cout << "n" << n << endl << endl;
-}
-
-void bound(Vector2f &n, Vector2f &n2, Vector2f &v) {
-    Vector2f new_n;
-    new_n = (n + n2);
-    new_n.normalize();
-    bound(new_n,v);
-}
 
 void *timer_handler(void *ptr) {
     if(timer_disable == 1) {
@@ -213,6 +218,29 @@ void *timer_handler(void *ptr) {
     static struct timeval now, prev;
     double dt = 0;
     clock_gettime(CLOCK_REALTIME, &_t);
+    static PxController ctrlr;
+
+    // --------------------------------------------------------------------------
+    // SioClient initialization -------------------------------------------------
+    // --------------------------------------------------------------------------
+    SioClientWrapper client;
+    sio::message::ptr data;
+    //発生するイベント名一覧をstd::vector<std::string>としてclientに渡す
+    std::vector<std::string> eventList(0);
+    eventList.push_back("landing");
+    eventList.push_back("direction");
+    eventList.push_back("px_bounce");
+    eventList.push_back("px_start");
+    eventList.push_back("px_position");
+    eventList.push_back("px_velocity");
+    client.setEventList(eventList);
+    //自身を表す部屋名を設定する(Phenoxなら例えば"Phenox"と決める)
+    client.setMyRoom("Phenox");
+    //データの送信宛先となる部屋名を設定する(Gameサーバなら例えば"Game")
+    client.setDstRoom("Game");
+    //URLを指定して接続開始
+    client.start("http://ailab-mayfestival2016-base2.herokuapp.com");
+
     while(1) {
         pxset_keepalive();
         pxset_systemlog();
@@ -229,19 +257,20 @@ void *timer_handler(void *ptr) {
             continue;
         }
         prev = now;
-        static double flight_time = 0;
-        flight_time += dt;
 
         // vision control
-        px_selfstate st;
+        static px_selfstate st;
+        static Vector2f pos;
         pxget_selfstate(&st);
+        pos << st.vision_tx, st.vision_ty;
 
-        static Vector2f v(0,50);
-        static Vector2f start_point(0,0);
         Vector2f norm, norm_start;
         Vector2f norm2, norm_start2;
         static Vector2f input(0,0);
 
+        // -------------------------------------------------------------------
+        // get boundary norm -------------------------------------------------
+        // -------------------------------------------------------------------
         int boundary_cnt = 0;
         if(pthread_mutex_trylock(&mutex) != EBUSY){
             norm = gnorm;
@@ -254,35 +283,58 @@ void *timer_handler(void *ptr) {
             //cout << "norm2 = \n" << norm2 << endl;
             pthread_mutex_unlock(&mutex);
 
-            norm.x() = -norm.x();
-            if(boundary_cnt == 1){
-                bound(norm,v);
-                flight_time = 0;
-                start_point << st.vision_tx,st.vision_ty;
-            /*}else if(boundary_cnt == 2){
-                bound(norm,norm2,v);
-                flight_time = 0;
-                start_point << st.vision_tx,st.vision_ty;
-                */
-            }
+            ctrlr.boundHandler(boundary_cnt,norm,norm2,pos);
         }
 
-        input = start_point + flight_time*v;
-        cout << v.x() << ' ' << v.y() << endl;
+        // --------------------------------------------------------------------
+        // get landing and direction-------------------------------------------
+        // --------------------------------------------------------------------
+       
+        //"landing"に対応するデータが来ているかチェック
+        if (client.isUpdated("landing")){
+                data = client.getData("landing");//データをsio::message::ptrとして取得
+                parseLanding(data);//データ抽出用関数に渡す
+                std::cout << "landing=" << landing << std::endl;
+        }
+        //"direction"に対応するデータが来ているかチェック
+        if (client.isUpdated("direction")){
+                data = client.getData("direction");//データをsio::message::ptrとして取得
+                parseDirection(data);//データ抽出用関数に渡す
+                std::cout << "direction = [" << direction[0] << ", " << direction[1] << "]" << std::endl;
+        }
+
+        // --------------------------------------------------------------------
+        // Sample of data sending ---------------------------------------------
+        // --------------------------------------------------------------------
+        // 送りたいところに移動してね
+        Vector2f px_position(0, 0);
+        Vector2f px_velocity(0, 0);
+
+	if(msec_cnt % 10 == 0){
+		client.sendData("px_start", makePxStart());//
+		client.sendData("px_bounce", makePxBounce());//
+		client.sendData("px_position", makePxPosition(px_position.x(), px_position.y()));//
+		client.sendData("px_velocity", makePxVelocity(px_velocity.x(), px_velocity.y()));//
+	}
         
+
+
+        //cout << ctrlr.vx() << "," << ctrlr.vy() << endl;
+
         // save log
         static ofstream ofs_deg("output_deg");
             ofs_deg << st.degx << "," << st.degy << endl;
         static ofstream ofs_ctl("output_v");
-            ofs_ctl << v.x() << "," << v.y() << "," << norm.x() << "," << norm.y() << endl;
+            ofs_ctl << ctrlr.vx() << "," << ctrlr.vy() << "," << norm.x() << "," << norm.y() << endl;
         static ofstream ofs_vision("output_vision");
-            ofs_vision << st.vision_tx << "," << st.vision_ty << "," << input.x() << input.y()  << endl;
+            ofs_vision << st.vision_tx << "," << st.vision_ty << "," << input.x() << "," << input.y() << endl;
 
         // if(!(msec_cnt % 30)){
         //     printf("%.2f %.2f %.2f | %.2f %.2f %.2f | %.2f | \n",st.degx,st.degy,st.degz,st.vision_tx,st.vision_ty,st.vision_tz,st.height);
         // } 
 
         static int hover_cnt = 0;
+        static Vector2f origin(0,0);
         if(pxget_operate_mode() == PX_UP){
             pxset_visualselfposition(0, 0);
             hover_cnt = 0;
@@ -293,19 +345,20 @@ void *timer_handler(void *ptr) {
                 hover_cnt++;
             }
             else if (hover_cnt == 500) {
-                hover_cnt++;
                 cout << "start control" << endl;
-                start_point << st.vision_tx,st.vision_ty;
-                flight_time = 0;
+                ctrlr.init(0,1,origin,pos);
+                hover_cnt++;
             }
             else{
-                pxset_visioncontrol_xy(input.x(), input.y());
+                input = ctrlr.controlStep(pos, dt);
+                pxset_visioncontrol_xy(input.x(),input.y());
             }
         }
 
         static int prev_operatemode = PX_HALT;
         if((prev_operatemode == PX_UP) && (pxget_operate_mode() == PX_HOVER)) {
-            pxset_visioncontrol_xy(st.vision_tx,st.vision_ty);
+            origin << st.vision_tx, st.vision_ty;
+            pxset_visioncontrol_xy(origin.x(),origin.y());
         }
         prev_operatemode = pxget_operate_mode();  
 
