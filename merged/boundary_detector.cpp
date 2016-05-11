@@ -13,12 +13,12 @@ BoundaryDetector::BoundaryDetector(){
     blue_r = 0.77;
     blue_g = -0.12;
     blue_b = -0.63;
-    blue_th = 35;
+    blue_th = 25;
     
     yellow_r = -0.46;
     yellow_g =  0.81;
     yellow_b = -0.34;
-    yellow_th = 15;
+    yellow_th = 10;
 
     // blue_r = -0.82;
     // blue_g = 0.49;
@@ -126,23 +126,40 @@ int BoundaryDetector::count_direction(Mat *out, Vector2f center, Vector2f norm, 
     int ymax = std::min((int)center.y() + range, out->rows);
     for(int y = ymin; y < ymax; y++){
         for(int x = xmin; x < xmax; x++){
+            // cout << " " << (int)out->data[ y * out->step + x * out->elemSize()];
             if(out->data[ y * out->step + x * out->elemSize()] <= 0){
+                // cout << "" << (int)out->data[ y * out->step + x * out->elemSize()];
                 continue;
             }
             else{
                 Vector2f vecx(x, y);
                 vecx = vecx - center;
+                // cout << " x, y = " << x << ", " << y << endl;
+                // cout  << "vecx * norm = " << vecx.dot(norm) << endl;
+                // cout  << "d = " << (vecx - vecx.dot(norm) * norm).norm() << endl;
+                // cout << "cnt1, cnt2 = " << cnt1 << ", " << cnt2 << endl;
                 if((vecx - vecx.dot(norm) * norm).norm() < 40){
+                // if(1){
                     if(vecx.dot(norm) > 0){
+                    // cout << "cnt1 " << endl;
+                        // cout << "+";
                         cnt1++;
                     }
                     else{
+                        // cout << "cnt2 " << endl;
+                        // cout << "-";
                         cnt2++;
                     }
                 }
+                else{
+                    // cout << "1";
+                }
+
             }
         }
+        // cout << endl;
     }
+    // cout << "cnt1, cnt2 = " << cnt1 << ", " << cnt2 << endl;
     if(cnt1 < cnt2)
         return 1;
     else

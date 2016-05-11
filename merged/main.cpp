@@ -153,14 +153,18 @@ int main(int argc, char **argv)
 
   //for ar detection ----------------------------------------------------------
   map<int,Vector3f> AR_id;
-  Vector3f v0(-0.18,0.18,0.0);
-  Vector3f v10(0.18,0.18,0.0);
-  Vector3f v20(-0.18,-0.18,0.0);
-  Vector3f v30(0.18,-0.18,0.0);
-  AR_id[0] =  v0;
-  AR_id[10]=  v10;
-  AR_id[20]=  v20;
-  AR_id[30]=  v30;
+  Vector3f v100(-0.50, 1.69,0.0);
+  Vector3f v110( 0.00, 1.69,0.0);
+  Vector3f v120( 0.50, 1.69,0.0);
+  Vector3f v130(-0.50, 2.29,0.0);
+  Vector3f v140( 0.00, 2.29,0.0);
+  Vector3f v150( 0.50, 2.29,0.0);
+  AR_id[100] = v100;
+  AR_id[110]=  v110;
+  AR_id[120]=  v120;
+  AR_id[130]=  v130;
+  AR_id[140]=  v140;
+  AR_id[150]=  v150;
   Vector3f mu;
   double t;
   clock_t start;
@@ -187,7 +191,7 @@ int main(int argc, char **argv)
       vector<Marker> markers  = ad->ARDetect(mat,params);
       Mat outputImage =ad->outPut(mat);
       mu = ad->LKF(outputImage,markers,params,AR_id);
-      
+     cout<< mu <<endl; 
       // critical section start--------------------------------------------
       pthread_mutex_lock(&mutex);
       gboundary_cnt = gn;
@@ -371,7 +375,8 @@ void *timer_handler(void *ptr) {
             ofs_ctl << ctrlr.vx() << "," << ctrlr.vy() << "," << norm.x() << "," << norm.y() << endl;
         static ofstream ofs_vision("output_vision");
             ofs_vision << st.vision_tx << "," << st.vision_ty << "," << input.x() << "," << input.y() << endl;
-
+	static ofstream ofs_mu("output_mu");
+            ofs_mu << mu[0] << "," << mu[1] << "," << mu[2]  << endl;
         // if(!(msec_cnt % 30)){
         //     printf("%.2f %.2f %.2f | %.2f %.2f %.2f | %.2f | \n",st.degx,st.degy,st.degz,st.vision_tx,st.vision_ty,st.vision_tz,st.height);
         // } 
