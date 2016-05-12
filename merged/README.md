@@ -23,7 +23,7 @@ makeの際に-lopencv_gpuがないと怒られるのでリンクをはる。
 
 その後ビルドする。  
 `cd aruco-1.2.5`
-`rm -rf src/chromaticmask.cpp chromaticmask.h`
+`rm -rf src/chromaticmask.cpp src/chromaticmask.h`
 `mkdir build`
 `cd build`
 `cmake ..`
