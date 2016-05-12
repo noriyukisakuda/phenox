@@ -67,11 +67,11 @@ Mat AR_DETECT::outPut(Mat frame){
 		 return outputImage;
 	}
 
-Vector3f AR_DETECT::LKF(Mat outputImage,vector<Marker> markers,CameraParameters params,map<int,Vector3f> AR_id)
+Vector3f AR_DETECT::LKF(Mat outputImage,vector<Marker> markers,CameraParameters params,map<int,Vector3f> AR_id,Vector3f u)
 	{
 		//定数
-		clock_t start;
-		clock_t end;
+		//clock_t start;
+		//clock_t end;
 		vector<float> Y;
 		vector<int>  ID;
 		for (auto&& marker : markers) {
@@ -100,11 +100,10 @@ Vector3f AR_DETECT::LKF(Mat outputImage,vector<Marker> markers,CameraParameters 
 				t=double(end - start)/CLOCKS_PER_SEC;
 				//cout << "duration"<< t << endl;
 				//速度の取得
-				//pxget_selfstate(&state);
 				//ダミーデータ
-				u(0,0)=0.0;
-				u(1,0)=0.0;
-				u(2,0)=0.0;
+				//u(0,0)=0.0;
+				//u(1,0)=0.0;
+				//u(2,0)=0.0;
 				//u(0,0)=px_selfstate.vision_vx;
 				//u(1,0)=px_selfstate.vision_vy;
 				//u(2,0)=px_selfstate.vision_vz	;

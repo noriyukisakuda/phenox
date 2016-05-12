@@ -118,7 +118,7 @@ public:
     }
     /**
      */
-    friend ostream & operator<<(ostream &str,const Marker &M)
+    /*friend ostream & operator<<(ostream &str,const Marker &M)
     {
         str<<M.id<<"=";
         for (int i=0;i<4;i++)
@@ -132,6 +132,7 @@ public:
 
         return str;
     }
+	*/
     
  
 private:

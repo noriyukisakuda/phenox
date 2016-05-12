@@ -165,7 +165,7 @@ int main(int argc, char **argv)
   AR_id[130]=  v130;
   AR_id[140]=  v140;
   AR_id[150]=  v150;
-  Vector3f mu;
+  Vector3f mu,u,px_v;
   double t;
   clock_t start;
   clock_t end;
@@ -186,12 +186,15 @@ int main(int argc, char **argv)
       //image_count++;
 
       int gn = bd.get_norm(&mat, &norm_start, &norm, &norm_start2, &norm2);
-
+      static px_selfstate st;
+      pxget_selfstate(&st);
+      px_v = Vector3f(st.vision_vx,st.vision_vy,st.vision_vx);
+      u=px_v;
       CameraParameters params = ad->CameraLoad(mat);
       vector<Marker> markers  = ad->ARDetect(mat,params);
       Mat outputImage =ad->outPut(mat);
-      mu = ad->LKF(outputImage,markers,params,AR_id);
-     cout<< mu <<endl; 
+      mu = ad->LKF(outputImage,markers,params,AR_id,u);
+      
       // critical section start--------------------------------------------
       pthread_mutex_lock(&mutex);
       gboundary_cnt = gn;
@@ -284,7 +287,7 @@ void *timer_handler(void *ptr) {
     //データの送信宛先となる部屋名を設定する(Gameサーバなら例えば"Game")
     client.setDstRoom("Game");
     //URLを指定して接続開始
-    client.start("http://ailab-mayfestival2016-base2.herokuapp.com");
+    client.start("http://192.168.1.58:8000");
 
     while(1) {
         pxset_keepalive();
@@ -312,7 +315,8 @@ void *timer_handler(void *ptr) {
         Vector2f norm, norm_start;
         Vector2f norm2, norm_start2;
         Vector3f mu;
-	static Vector2f input(0,0);
+	    static Vector2f input(0,0);
+        int bounded;
 
         // -------------------------------------------------------------------
         // get boundary norm -------------------------------------------------
@@ -324,13 +328,15 @@ void *timer_handler(void *ptr) {
             norm2 = gnorm2;
             norm_start2 = gnorm_start2;
             boundary_cnt = gboundary_cnt;	
-	    mu=gmu;
+            mu=gmu;
             //cout << "boundary cnt = " << boundary_cnt << endl;
             //cout << "norm = \n" << norm << endl;
             //cout << "norm2 = \n" << norm2 << endl;
             pthread_mutex_unlock(&mutex);
 
-            ctrlr.boundHandler(boundary_cnt,norm,norm2,pos);
+            bounded = ctrlr.boundHandler(boundary_cnt,norm,norm2,pos);
+        }else{
+            bounded = 1;
         }
 
         // --------------------------------------------------------------------
@@ -342,31 +348,38 @@ void *timer_handler(void *ptr) {
                 data = client.getData("landing");//データをsio::message::ptrとして取得
                 parseLanding(data);//データ抽出用関数に渡す
                 std::cout << "landing=" << landing << std::endl;
+                cout << "----- Game Over -----" << endl;
+                cout << "  landing...     " << endl;
+                pxset_operate_mode(PX_DOWN);
+                exit(0);
         }
         //"direction"に対応するデータが来ているかチェック
         if (client.isUpdated("direction")){
                 data = client.getData("direction");//データをsio::message::ptrとして取得
                 parseDirection(data);//データ抽出用関数に渡す
                 std::cout << "direction = [" << direction[0] << ", " << direction[1] << "]" << std::endl;
+                ctrlr.changeVel(direction, pos);
         }
 
         // --------------------------------------------------------------------
         // Sample of data sending ---------------------------------------------
         // --------------------------------------------------------------------
         // 送りたいところに移動してね
-        Vector2f px_position(mu[0], mu[1]);
-        Vector2f px_velocity(0, 0);
+        Vector2f px_position(100*mu[0], 100*mu[1]);
 
 	if(msec_cnt % 10 == 0){
-		client.sendData("px_start", makePxStart());//
-		client.sendData("px_bounce", makePxBounce());//
-		client.sendData("px_position", makePxPosition(px_position.x(), px_position.y()));//
-		client.sendData("px_velocity", makePxVelocity(px_velocity.x(), px_velocity.y()));//
+        if(bounded == 0){
+            cout << "----------send bounce----- " << endl;
+            client.sendData("px_bounce", makePxBounce());
+        } 
+		client.sendData("px_position", makePxPosition(px_position.x(), px_position.y()));
+		client.sendData("px_velocity", makePxVelocity(ctrlr.vx(), ctrlr.vy()));
 	}
         
 
 
         //cout << ctrlr.vx() << "," << ctrlr.vy() << endl;
+        //cout << " mu : " << mu[0] << "  " << mu[1] << endl;
 
         // save log
         static ofstream ofs_deg("output_deg");
@@ -377,6 +390,7 @@ void *timer_handler(void *ptr) {
             ofs_vision << st.vision_tx << "," << st.vision_ty << "," << input.x() << "," << input.y() << endl;
 	static ofstream ofs_mu("output_mu");
             ofs_mu << mu[0] << "," << mu[1] << "," << mu[2]  << endl;
+
         // if(!(msec_cnt % 30)){
         //     printf("%.2f %.2f %.2f | %.2f %.2f %.2f | %.2f | \n",st.degx,st.degy,st.degz,st.vision_tx,st.vision_ty,st.vision_tz,st.height);
         // } 
@@ -394,7 +408,8 @@ void *timer_handler(void *ptr) {
             }
             else if (hover_cnt == 500) {
                 cout << "start control" << endl;
-                ctrlr.init(0,1,origin,pos);
+                client.sendData("px_start", makePxStart());
+                ctrlr.init(0,0,origin,pos);
                 hover_cnt++;
             }
             else{
@@ -420,6 +435,7 @@ void *timer_handler(void *ptr) {
             }      
         }
         if(pxget_battery() == 1) {
+            client.sendData("px_start", makePxStart());
             timer_disable = 1;
             system("shutdown -h now\n");   
             exit(1);
