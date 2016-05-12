@@ -18,6 +18,12 @@ Use Library
 
 phenox内でこれをビルドする際、ホストPCと異なりsrcファイルの一部を削除しないとビルドが出来ないのでこれを削除してからビルドする。（chromaticmaskは1.2.5からの新機能で今回は活用しなくても師匠はないものである。）
 
+makeの際に-lopencv_gpuがないと怒られるのでリンクをはる。
+
+`ln -s /usr/lib/libopencv_gpu.so.2.3 /usr/lib/libopencv_gpu.so`
+
+その後ビルドする。
+
 `cd aruco-1.2.5`
 `rm -rf src/chromaticmask.cpp chromaticmask.h`
 `mkdir build`
