@@ -103,23 +103,6 @@ int main(int argc, char **argv)
   int i,j,count;
   count = 0;
 
-  // node image server settings ------------------------------------------------
-  int client_sockfd;
-  int len ;
-  struct sockaddr_un address;
-  int result ;
-  client_sockfd = socket(AF_UNIX,SOCK_STREAM,0);
-  address.sun_family = AF_UNIX ;
-  strcpy(address.sun_path , "/root/nodejs/projects/imgserver/mysocket");
-  len = sizeof(address);
-  result = connect(client_sockfd , (struct sockaddr *)&address , len);
-  if(result != 0) {exit(-1);}
-
-  int param[]={CV_IMWRITE_JPEG_QUALITY,70};
-
-  long unsigned int buffer_size = 128000;
-  unsigned char compressed_buffer_memory[128000];
-  unsigned char *compressed_buffer = (unsigned char*)compressed_buffer_memory;
   double delta, start_time;
   delta = start_time = get_time();
   int frames_count = 0;
@@ -193,12 +176,7 @@ int main(int argc, char **argv)
       CameraParameters params = ad->CameraLoad(mat);
       vector<Marker> markers  = ad->ARDetect(mat,params);
       Mat outputImage =ad->outPut(mat);
-<<<<<<< HEAD
       mu = ad->LKF(outputImage,markers,params,AR_id,u);
-=======
-      mu = ad->LKF(outputImage,markers,params,AR_id);
->>>>>>> 45b6694fd8ec3311bd9eb78ef2c328ef582920c2
-      
       // critical section start--------------------------------------------
       pthread_mutex_lock(&mutex);
       gboundary_cnt = gn;
@@ -211,46 +189,12 @@ int main(int argc, char **argv)
       pthread_mutex_unlock(&mutex);
       // critical section end--------------------------------------------
       //
-    if(gn == 1){
-        norm_end = norm_start + 100 * norm;
-        cvLine(testImage, cvPoint(norm_start.x(), norm_start.y()), cvPoint(norm_end.x(), norm_end.y()), CV_RGB(0, 255, 255), 3, 4 );
-    }
-    else if(gn == 2){
-        norm_end = norm_start + 100 * norm;
-        norm_end2 = norm_start2 + 100 * norm2;
-        cvLine(testImage, cvPoint(norm_start.x(), norm_start.y()), cvPoint(norm_end.x(), norm_end.y()), CV_RGB(0, 255, 255), 3, 4 );
-        cvLine(testImage, cvPoint(norm_start2.x(), norm_start2.y()), cvPoint(norm_end2.x(), norm_end2.y()), CV_RGB(0, 255, 255), 3, 4 );
-    }
       if(pxset_imgfeature_query(cameraid) == 1) {
 	      ftstate = 1;
       }
-
-      tjhandle tj_compressor = tjInitCompress();
-      buffer_size = 128000;
-      unsigned char *buffer = (unsigned char*)testImage->imageData;
-      
-      double encoding_time = get_time();
-      if (tjCompress2(tj_compressor, buffer, 320, 0, 240, TJPF_BGR,
-                &compressed_buffer, &buffer_size, TJSAMP_420, 30,
-                TJFLAG_NOREALLOC) == -1) {
-          printf("%s\n", tjGetErrorStr());
-      } else {
-          encoding_time = get_time() - encoding_time;
-          write(client_sockfd, compressed_buffer, buffer_size);
-          count++;
-      }
-      
-      tjDestroy(tj_compressor);
-      delta = get_time();
-      
-      if (get_time() - last_time > 3000.0) {
-          fps = frames_count * 1000.0/(get_time() - last_time);
-          last_time = get_time();
-          frames_count = 0;
-      }
+      usleep(1000);
     }             
   }
-  usleep(2000);
   delete ad;
 }
 
@@ -319,7 +263,7 @@ void *timer_handler(void *ptr) {
         Vector2f norm, norm_start;
         Vector2f norm2, norm_start2;
         Vector3f mu;
-	    static Vector2f input(0,0);
+        static Vector2f input(0,0);
         int bounded;
 
         // -------------------------------------------------------------------
@@ -332,7 +276,7 @@ void *timer_handler(void *ptr) {
             norm2 = gnorm2;
             norm_start2 = gnorm_start2;
             boundary_cnt = gboundary_cnt;	
-            mu=gmu;
+	    mu=gmu;
             //cout << "boundary cnt = " << boundary_cnt << endl;
             //cout << "norm = \n" << norm << endl;
             //cout << "norm2 = \n" << norm2 << endl;
@@ -371,19 +315,19 @@ void *timer_handler(void *ptr) {
         // 送りたいところに移動してね
         Vector2f px_position(100*mu[0], 100*mu[1]);
 
-	if(msec_cnt % 10 == 0){
         if(bounded == 0){
             cout << "----------send bounce----- " << endl;
             client.sendData("px_bounce", makePxBounce());
         } 
-		client.sendData("px_position", makePxPosition(px_position.x(), px_position.y()));
-		client.sendData("px_velocity", makePxVelocity(ctrlr.vx(), ctrlr.vy()));
-	}
+
+        if(msec_cnt % 10 == 0){
+            client.sendData("px_position", makePxPosition(px_position.x(), px_position.y()));
+            client.sendData("px_velocity", makePxVelocity(ctrlr.vx(), ctrlr.vy()));
+        }
         
 
 
         //cout << ctrlr.vx() << "," << ctrlr.vy() << endl;
-        //cout << " mu : " << mu[0] << "  " << mu[1] << endl;
 
         // save log
         static ofstream ofs_deg("output_deg");
@@ -394,7 +338,6 @@ void *timer_handler(void *ptr) {
             ofs_vision << st.vision_tx << "," << st.vision_ty << "," << input.x() << "," << input.y() << endl;
 	static ofstream ofs_mu("output_mu");
             ofs_mu << mu[0] << "," << mu[1] << "," << mu[2]  << endl;
-
         // if(!(msec_cnt % 30)){
         //     printf("%.2f %.2f %.2f | %.2f %.2f %.2f | %.2f | \n",st.degx,st.degy,st.degz,st.vision_tx,st.vision_ty,st.vision_tz,st.height);
         // } 
