@@ -39,11 +39,13 @@ AR_DETECT::AR_DETECT(){
 	Sigma = Matrix3f::Zero();
 	y     = VectorXf(N3);
 	map<int,Vector3f> AR_id;
-
-	CameraParameters params;
+        CameraParameters params;
 	MarkerDetector detector;
 	vector<Marker> markers;
-	}
+	//追加だよ
+	//Vector3f mu_tmp(0.0,0.0,0.0);		
+
+}
 
 CameraParameters AR_DETECT::CameraLoad(Mat frame){
 		// カメラパラメタのロード
@@ -98,7 +100,7 @@ Vector3f AR_DETECT::LKF(Mat outputImage,vector<Marker> markers,CameraParameters 
 				//予測
 				end = clock();
 				t=double(end - start)/CLOCKS_PER_SEC;
-				//cout << "duration"<< t << endl;
+				cout << "duration"<< t << endl;
 				//速度の取得
 				//ダミーデータ
 				//u(0,0)=0.0;
@@ -138,7 +140,14 @@ Vector3f AR_DETECT::LKF(Mat outputImage,vector<Marker> markers,CameraParameters 
 			K=Sigma_*H.transpose()*S.inverse();
 			mu=mu_+K*yi;
 			Sigma=Sigma_-K*H*Sigma_;
-			cout << mu << endl;
+			cout << mu(0) << endl;
+			if ( -1<mu(0) && mu(0)<1 && 0 <mu(1) && mu(1)<3.0){
+			//	cout<<"ok"<<mu(0)<<endl;
+				mu_tmp=mu;
+			}
+		//	mu_tmp=mu;
 	}
-	return mu;
+//	return mu;
+	cout <<mu_tmp<<endl;
+	return mu_tmp;	
 	}

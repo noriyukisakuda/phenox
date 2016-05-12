@@ -49,6 +49,8 @@ class AR_DETECT{
     CameraParameters params;
   	MarkerDetector detector;
   	vector<Marker> markers;
+	//追加だよ
+	Vector3f mu_tmp;
 
     AR_DETECT();  //コンストラクタ
   	CameraParameters CameraLoad(Mat frame); //カメラロード
