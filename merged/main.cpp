@@ -328,7 +328,7 @@ void *timer_handler(void *ptr) {
         } 
 
         if(msec_cnt % 10 == 0){
-            client.sendData("px_position", makePxPosition(px_position.x(), px_position.y()));
+            client.sendData("px_position", makePxPosition(px_position.x(), px_position.y(), st.height));
             client.sendData("px_velocity", makePxVelocity(ctrlr.vx(), ctrlr.vy()));
         }
         
