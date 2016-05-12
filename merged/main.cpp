@@ -241,7 +241,7 @@ void *timer_handler(void *ptr) {
     client.start("http://192.168.1.58:8000");
 
     //宛先指定でデータを送信
-    client.sendData("px_ready","Manager", makePxReady());
+    client.sendData("px_ready","Manager", makePxReady(true));
 
     while(1) {
         pxset_keepalive();
@@ -302,6 +302,7 @@ void *timer_handler(void *ptr) {
                 data = client.getData("landing");//データをsio::message::ptrとして取得
                 parseLanding(data);//データ抽出用関数に渡す
                 std::cout << "landing=" << landing << std::endl;
+                client.sendData("px_ready","Manager", makePxReady(false));
                 cout << "----- Game Over -----" << endl;
                 cout << "  landing...     " << endl;
                 pxset_operate_mode(PX_DOWN);
