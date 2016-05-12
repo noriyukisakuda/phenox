@@ -303,8 +303,8 @@ void *timer_handler(void *ptr) {
                 parseLanding(data);//データ抽出用関数に渡す
                 std::cout << "landing=" << landing << std::endl;
                 client.sendData("px_ready","Manager", makePxReady(false));
-                cout << "----- Game Over -----" << endl;
-                cout << "  landing...     " << endl;
+                cout << "----- Landing -----" << endl;
+                cout << "  landing phenox...     " << endl;
                 pxset_operate_mode(PX_DOWN);
                 exit(0);
         }
@@ -321,6 +321,7 @@ void *timer_handler(void *ptr) {
         // --------------------------------------------------------------------
         // 送りたいところに移動してね
         Vector2f px_position(100*mu[0], 100*mu[1]);
+        cout << "  px_position :" << mu[0] << "," << mu[1] << endl;
 
         if(bounded == 0){
             cout << "----------send bounce----- " << endl;
