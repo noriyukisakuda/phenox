@@ -117,7 +117,7 @@ int main(int argc, char **argv)
   while(!pxget_cpu1ready());
   setup_timer();
   printf("CPU0:Finished Initialization.\n");
-  
+
 
   // image ---------------------------------------------------------------------
   IplImage *testImage;    
@@ -132,6 +132,7 @@ int main(int argc, char **argv)
   Mat mat;
   BoundaryDetector bd;
   Vector2f norm, norm_start, norm_end, norm2, norm_start2, norm_end2;
+
 
 
   //for ar detection ----------------------------------------------------------
@@ -229,13 +230,18 @@ void *timer_handler(void *ptr) {
     eventList.push_back("px_start");
     eventList.push_back("px_position");
     eventList.push_back("px_velocity");
+    eventList.push_back("px_ready");
     client.setEventList(eventList);
+
     //自身を表す部屋名を設定する(Phenoxなら例えば"Phenox"と決める)
     client.setMyRoom("Phenox");
     //データの送信宛先となる部屋名を設定する(Gameサーバなら例えば"Game")
     client.setDstRoom("Game");
     //URLを指定して接続開始
     client.start("http://192.168.1.58:8000");
+
+    //宛先指定でデータを送信
+    client.sendData("px_ready","Manager", makePxReady());
 
     while(1) {
         pxset_keepalive();

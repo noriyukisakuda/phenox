@@ -8,6 +8,7 @@
 // sio::Boolean makeSampleBoolean();//真偽値の場合
 bool makePxStart();//真偽値の場合
 bool makePxBounce();//真偽値の場合
+bool makePxReady();//真偽値の場合
 // sio::Integer makeSampleInteger();//整数の場合
 // sio::Float makeSampleFloat();//浮動小数の場合
 // sio::String makeSampleString();//文字列の場合
@@ -49,6 +50,10 @@ bool makePxBounce(){
 
 //スタートの生成
 bool makePxStart(){
+	return true; 
+}
+
+bool makePxReady(){
 	return true; 
 }
 
