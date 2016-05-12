@@ -41,6 +41,14 @@ public:
 			.add("room", sio::Array().add(dstRoom))
 			.add("data", data).pack());
 	}
+	//データを送信する(宛先指定)
+	template<typename T>
+	void sendData(const std::string& eventName,const std::string& dst, const T& data){
+		client.socket()->emit("transfer", sio::Object()
+			.add("event", eventName)
+			.add("room", sio::Array().add(dst))
+			.add("data", data).pack());
+	}
 	//空データ(イベント名のみ)を送信する
 	void sendData(const std::string& eventName);
 };
