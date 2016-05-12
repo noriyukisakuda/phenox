@@ -193,7 +193,11 @@ int main(int argc, char **argv)
       CameraParameters params = ad->CameraLoad(mat);
       vector<Marker> markers  = ad->ARDetect(mat,params);
       Mat outputImage =ad->outPut(mat);
+<<<<<<< HEAD
       mu = ad->LKF(outputImage,markers,params,AR_id,u);
+=======
+      mu = ad->LKF(outputImage,markers,params,AR_id);
+>>>>>>> 45b6694fd8ec3311bd9eb78ef2c328ef582920c2
       
       // critical section start--------------------------------------------
       pthread_mutex_lock(&mutex);
