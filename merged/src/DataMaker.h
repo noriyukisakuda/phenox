@@ -59,11 +59,12 @@ bool makePxReady(bool px_isready){
 
 
 //位置データの生成
-sio::Array makePxPosition(double px_position_x, double px_position_y){
+sio::Array makePxPosition(double px_position_x, double px_position_y, double px_position_z){
 	sio::Array ret;//配列型の場合はsio::Array
 	//Arrayへの追加はadd(value)で行う。
 	ret.add(px_position_x)
-		.add(px_position_y);
+		.add(px_position_y)
+                .add(px_position_z);
 	return ret;
 }
 
