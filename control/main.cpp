@@ -267,6 +267,8 @@ void *timer_handler(void *ptr) {
         Vector2f norm, norm_start;
         Vector2f norm2, norm_start2;
         static Vector2f input(0,0);
+        
+        bool bounded = false;
 
         // -------------------------------------------------------------------
         // get boundary norm -------------------------------------------------
@@ -283,7 +285,7 @@ void *timer_handler(void *ptr) {
             //cout << "norm2 = \n" << norm2 << endl;
             pthread_mutex_unlock(&mutex);
 
-            ctrlr.boundHandler(boundary_cnt,norm,norm2,pos);
+            bounded = ctrlr.boundHandler(boundary_cnt,norm,norm2,pos);
         }
 
         // --------------------------------------------------------------------
@@ -295,12 +297,17 @@ void *timer_handler(void *ptr) {
                 data = client.getData("landing");//データをsio::message::ptrとして取得
                 parseLanding(data);//データ抽出用関数に渡す
                 std::cout << "landing=" << landing << std::endl;
+                cout << "----- Game Over -----" << endl;
+                cout << "  landing...     " << endl;
+                timer_disable = 1;
+                exit(0);
         }
         //"direction"に対応するデータが来ているかチェック
         if (client.isUpdated("direction")){
                 data = client.getData("direction");//データをsio::message::ptrとして取得
                 parseDirection(data);//データ抽出用関数に渡す
                 std::cout << "direction = [" << direction[0] << ", " << direction[1] << "]" << std::endl;
+                ctrlr.changeVel(direction, pos)
         }
 
         // --------------------------------------------------------------------
@@ -308,13 +315,13 @@ void *timer_handler(void *ptr) {
         // --------------------------------------------------------------------
         // 送りたいところに移動してね
         Vector2f px_position(0, 0);
-        Vector2f px_velocity(0, 0);
 
 	if(msec_cnt % 10 == 0){
-		client.sendData("px_start", makePxStart());//
-		client.sendData("px_bounce", makePxBounce());//
-		client.sendData("px_position", makePxPosition(px_position.x(), px_position.y()));//
-		client.sendData("px_velocity", makePxVelocity(px_velocity.x(), px_velocity.y()));//
+        if(bounded){
+            client.sendData("px_bounce", makePxBounce());
+        }
+		client.sendData("px_position", makePxPosition(px_position.x(), px_position.y()));
+		client.sendData("px_velocity", makePxVelocity(ctrlr.vx(), ctrlr.vy());
 	}
         
 
@@ -346,7 +353,8 @@ void *timer_handler(void *ptr) {
             }
             else if (hover_cnt == 500) {
                 cout << "start control" << endl;
-                ctrlr.init(0,1,origin,pos);
+                client.sendData("px_start", makePxStart());
+                ctrlr.init(0,0,origin,pos);
                 hover_cnt++;
             }
             else{
@@ -372,6 +380,7 @@ void *timer_handler(void *ptr) {
             }      
         }
         if(pxget_battery() == 1) {
+            client.sendData("px_start", makePxStart());//
             timer_disable = 1;
             system("shutdown -h now\n");   
             exit(1);
