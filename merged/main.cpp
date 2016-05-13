@@ -95,7 +95,7 @@ double get_time() {
     struct timeval  tv;
     gettimeofday(&tv, NULL);
 
-    return (tv.tv_sec) * 1000 + (tv.tv_usec) / 1000 ; 
+    return (tv.tv_sec) * 1000 + (tv.tv_usec) / 1000 ;
 }
 
 int main(int argc, char **argv)
@@ -112,7 +112,7 @@ int main(int argc, char **argv)
 
   // phenox initialization -----------------------------------------------------
   pxinit_chain();
-  set_parameter();   
+  set_parameter();
   printf("CPU0:Start Initialization. Please do not move Phenox.\n");
   while(!pxget_cpu1ready());
   setup_timer();
@@ -120,10 +120,10 @@ int main(int argc, char **argv)
 
 
   // image ---------------------------------------------------------------------
-  IplImage *testImage;    
+  IplImage *testImage;
   count = 0;
 
-  pxset_led(0,1); 
+  pxset_led(0,1);
   const int ftmax = 200;
   px_imgfeature *ft =(px_imgfeature *)calloc(ftmax,sizeof(px_imgfeature));
   int ftstate = 0;
@@ -141,7 +141,7 @@ int main(int argc, char **argv)
   Vector3f v20(-0.35, 0.56,0.0);
   Vector3f v40( 0.35, 0.56,0.0);
   Vector3f v60( 0.70, 0.56,0.0);
-  
+
   Vector3f v80(-0.70,  1.06,0.0);
   Vector3f v110(-0.35, 1.06,0.0);
   Vector3f v120( 0.35, 1.06,0.0);
@@ -149,7 +149,7 @@ int main(int argc, char **argv)
 
   Vector3f v140(-0.70, 1.56,0.0);
   Vector3f v160(-0.35, 1.56,0.0);
-  Vector3f v170( 0.35, 1.56,0.0); 
+  Vector3f v170( 0.35, 1.56,0.0);
   Vector3f v190( 0.70, 1.56,0.0);
 
   Vector3f v200(-0.70, 2.06,0.0);
@@ -171,6 +171,11 @@ int main(int argc, char **argv)
   Vector3f v340(-0.35, 3.56,0.0);
   Vector3f v350( 0.35, 3.56,0.0);
   Vector3f v360( 0.70, 3.56,0.0);
+
+  Vector3f v370(-0.70, 0.06,0.0);
+  Vector3f v380(-0.35, 0.06,0.0);
+  Vector3f v390( 0.35, 0.06,0.0);
+  Vector3f v400( 0.70, 0.06,0.0);
 
   AR_id[0] = v0;
   AR_id[20]=  v20;
@@ -200,6 +205,11 @@ int main(int argc, char **argv)
   AR_id[340]=  v340;
   AR_id[350]=  v350;
   AR_id[360]=  v360;
+  AR_id[370] = v370;
+  AR_id[380]=  v380;
+  AR_id[390]=  v390;
+  AR_id[400]=  v400;
+
   Vector3f mu,u,px_v;
   double t;
   clock_t start;
@@ -209,8 +219,8 @@ int main(int argc, char **argv)
   ad = new AR_DETECT;
 
   // main loop ----------------------------------------------------------------
-  while(1) {         
-    if(pxget_imgfullwcheck(cameraid,&testImage) == 1) {	
+  while(1) {
+    if(pxget_imgfullwcheck(cameraid,&testImage) == 1) {
       frames_count++;
       //static int image_count = 0;
       //cout << frames_count << endl;
@@ -245,7 +255,7 @@ int main(int argc, char **argv)
 	      ftstate = 1;
       }
       usleep(1000);
-    }             
+    }
   }
   delete ad;
 }
@@ -295,13 +305,13 @@ void *timer_handler(void *ptr) {
     while(1) {
         pxset_keepalive();
         pxset_systemlog();
-        pxset_img_seq(cameraid);  
+        pxset_img_seq(cameraid);
 
         static unsigned long msec_cnt = 0;
         msec_cnt++;
 
         gettimeofday(&now, NULL);
-        dt = (now.tv_sec - prev.tv_sec) + 
+        dt = (now.tv_sec - prev.tv_sec) +
                 (now.tv_usec - prev.tv_usec) * 1.0E-6;
         if(dt < 0){
             cout << "dt < 0" << endl;
@@ -330,7 +340,7 @@ void *timer_handler(void *ptr) {
             norm_start = gnorm_start;
             norm2 = gnorm2;
             norm_start2 = gnorm_start2;
-            boundary_cnt = gboundary_cnt;	
+            boundary_cnt = gboundary_cnt;
 	    mu=gmu;
             //cout << "boundary cnt = " << boundary_cnt << endl;
             //cout << "norm = \n" << norm << endl;
@@ -345,7 +355,7 @@ void *timer_handler(void *ptr) {
         // --------------------------------------------------------------------
         // get landing and direction-------------------------------------------
         // --------------------------------------------------------------------
-       
+
         //"landing"に対応するデータが来ているかチェック
         if (client.isUpdated("landing")){
                 data = client.getData("landing");//データをsio::message::ptrとして取得
@@ -375,13 +385,13 @@ void *timer_handler(void *ptr) {
         if(bounded == 0){
             cout << "----------send bounce----- " << endl;
             client.sendData("px_bounce", makePxBounce());
-        } 
+        }
 
         if(msec_cnt % 10 == 0){
             client.sendData("px_position", makePxPosition(px_position.x(), px_position.y(), st.height));
             client.sendData("px_velocity", makePxVelocity(ctrlr.vx(), ctrlr.vy()));
         }
-        
+
         //宛先指定でデータを送信
         if(msec_cnt % 100 == 0 && !ctrlr.isStarted()){
             client.sendData("px_ready","Manager", makePxReady(true));
@@ -396,11 +406,11 @@ void *timer_handler(void *ptr) {
             ofs_ctl << ctrlr.vx() << "," << ctrlr.vy() << "," << norm.x() << "," << norm.y() << endl;
         static ofstream ofs_vision("output_vision");
             ofs_vision << st.vision_tx << "," << st.vision_ty << "," << input.x() << "," << input.y() << endl;
-	static ofstream ofs_mu("output_mu");
+	      static ofstream ofs_mu("output_mu");
             ofs_mu << mu[0] << "," << mu[1] << "," << mu[2]  << endl;
         // if(!(msec_cnt % 30)){
         //     printf("%.2f %.2f %.2f | %.2f %.2f %.2f | %.2f | \n",st.degx,st.degy,st.degz,st.vision_tx,st.vision_ty,st.vision_tz,st.height);
-        // } 
+        // }
 
         static int hover_cnt = 0;
         static Vector2f origin(0,0);
@@ -430,21 +440,21 @@ void *timer_handler(void *ptr) {
             origin << st.vision_tx, st.vision_ty;
             pxset_visioncontrol_xy(origin.x(),origin.y());
         }
-        prev_operatemode = pxget_operate_mode();  
+        prev_operatemode = pxget_operate_mode();
 
         if(pxget_whisle_detect() == 1) {
             if(pxget_operate_mode() == PX_HOVER) {
                 pxset_operate_mode(PX_DOWN);
-            }      
+            }
             else if(pxget_operate_mode() == PX_HALT) {
                 pxset_rangecontrol_z(150);
-                pxset_operate_mode(PX_UP);		   
-            }      
+                pxset_operate_mode(PX_UP);
+            }
         }
         if(pxget_battery() == 1) {
             client.sendData("px_start", makePxStart());
             timer_disable = 1;
-            system("shutdown -h now\n");   
+            system("shutdown -h now\n");
             exit(1);
         }
 

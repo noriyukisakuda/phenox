@@ -36,7 +36,7 @@ AR_DETECT::AR_DETECT(){
 	F  = Matrix3f::Identity();
 	G  = Matrix3f::Identity();
 	Q  = Matrix3f::Identity();
-	Sigma = Matrix3f::Zero();
+	Sigma = Matrix3f::Identity()*0.5;
 	y     = VectorXf(N3);
 	map<int,Vector3f> AR_id;
         CameraParameters params;
@@ -141,13 +141,13 @@ Vector3f AR_DETECT::LKF(Mat outputImage,vector<Marker> markers,CameraParameters 
 			mu=mu_+K*yi;
 			Sigma=Sigma_-K*H*Sigma_;
 			cout << mu(0) << endl;
-			if ( -1<mu(0) && mu(0)<1 && 0 <mu(1) && mu(1)<3.0){
+			if ( -1.2<mu(0) && mu(0)<1.2 && -0.1<mu(1) && mu(1)<4.0){
 			//	cout<<"ok"<<mu(0)<<endl;
 				mu_tmp=mu;
 			}
 		//	mu_tmp=mu;
 	}
 //	return mu;
-	cout <<mu_tmp<<endl;
+//	cout <<mu_tmp<<endl;
 	return mu_tmp;	
 	}
