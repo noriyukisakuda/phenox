@@ -4,7 +4,7 @@
 #define BOOSTTIME 10
 #define BOOSTPARAM 5
 #define VNORM 100
-#define DBOUNDCNT 2
+#define DBOUNDCNT 1
 
 
 void PxController::init(float v_init_x, float v_init_y,
@@ -23,11 +23,12 @@ void PxController::addTime(double dt) {
 }
 
 void PxController::changeVel(double direction[2], Vector2f &pos) {
+    std::cout << "----bound by game----- "<< std::endl;
+    std::cout<< " before v:" << v_.x() << "," << v_.y() << std::endl;
     v_ << direction[0], direction[1];
     setStartPoint(pos);
     boost_count_ = 0;
-    std::cout << "----bound by game----- "<< std::endl;
-    std::cout<< " v:" << v_.x() << "," << v_.y() << std::endl;
+    std::cout<< " after v:" << v_.x() << "," << v_.y() << std::endl;
 }
 
 int PxController::bound(Vector2f &n) {
