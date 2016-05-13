@@ -13,7 +13,7 @@ BoundaryDetector::BoundaryDetector(){
     blue_r = 0.77;
     blue_g = -0.12;
     blue_b = -0.63;
-    blue_th = 25;
+    blue_th = 30;
     
     yellow_r = -0.46;
     yellow_g =  0.81;
@@ -276,6 +276,22 @@ int BoundaryDetector::get_norm(Mat *org, Vector2f *norm_start1, Vector2f *norm1,
     // imshow("in", in1_image * 120);
     // imshow("edge", edge);
     // out1_image = Mat::zeros(Size(org->cols / skip_step_ + 1, org->rows / skip_step_ + 1), CV_8U);
+
+	/*
+    static int image_count = 0;
+    stringstream ss;
+    ss << "px_image" << image_count << ".png";
+    imwrite(ss.str(), edge);
+    stringstream ssb;
+    ssb << "px_image_blue" << image_count << ".png";
+    imwrite(ssb.str(), out1_image * 120);
+    stringstream ssy;
+    ssy << "px_image_yellow" << image_count << ".png";
+    imwrite(ssy.str(), in1_image * 120);
+    cout << "save" << endl;
+    image_count++;
+*/
+
     int find = findLine(&edge, &out1_image, norm_start1, norm1, norm_start2, norm2);
 
     if(find == 1){
