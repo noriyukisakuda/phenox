@@ -44,4 +44,7 @@ libファイルをコピー、libaruco.so.1.2.5に関してはgitからpullし�
 またtestデータ内の(カメラのパラメーター)yamlファイルもコピー（本来は自作したほうがいい）
 `$cp ARUCO_TEST_DATA/board/intrinsics.yml`
 
+実行の際にlibaruco.so.1.2がないと怒られる場合がある。その場合、pathをLD_LIBRARY_PATHに追加する必要がある。  
+`export LD_LIBRARY_PATH=/your/path/to/aruco.so.1.2:$LD_LIBRARY_PATH`
+
 
