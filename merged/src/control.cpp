@@ -15,6 +15,7 @@ void PxController::init(float v_init_x, float v_init_y,
     bound_locked_ = false;
     boost_count_ = BOOSTTIME+1;
     dbound_lock_cnt = 0;
+    game_started_ = true;
 }
 
 void PxController::addTime(double dt) {
@@ -31,13 +32,13 @@ void PxController::changeVel(double direction[2], Vector2f &pos) {
 
 int PxController::bound(Vector2f &n) {
     n.x() = -n.x();
+    std::cout << "----bound----- "<< std::endl;
+    std::cout << " n:" << n.x() << "," << n.y() << std::endl;
     if(n.dot(v_) >= 0) {
         return 1;
     }
     v_ += -2*(n.dot(v_))*n;
     bound_locked_ = true;
-    std::cout << "----bound----- "<< std::endl;
-    std::cout << " n:" << n.x() << "," << n.y() << std::endl;
     std::cout<< " v:" << v_.x() << "," << v_.y() << std::endl;
     return 0;
 }

@@ -18,9 +18,12 @@ class PxController {
     int boost_count_;
     int dbound_lock_cnt;
 
+    bool game_started_;
+
 public:
 
     PxController(){
+        game_started_ = false;
     }
     PxController(const PxController &o) : v_(o.v_) {
     }
@@ -28,6 +31,10 @@ public:
 
     void init(float v_init_x, float v_init_y,
         Vector2f origin, Vector2f pos);
+
+    bool isStarted() {
+        return game_started_;
+    }
 
     float vx() {
         return v_.x();

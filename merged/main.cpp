@@ -240,8 +240,6 @@ void *timer_handler(void *ptr) {
     //URLを指定して接続開始
     client.start("http://192.168.1.58:8000");
 
-    //宛先指定でデータを送信
-    client.sendData("px_ready","Manager", makePxReady(true));
 
     while(1) {
         pxset_keepalive();
@@ -333,7 +331,10 @@ void *timer_handler(void *ptr) {
             client.sendData("px_velocity", makePxVelocity(ctrlr.vx(), ctrlr.vy()));
         }
         
-
+        //宛先指定でデータを送信
+        if(msec_cnt % 100 == 0 && !ctrlr.isStarted()){
+            client.sendData("px_ready","Manager", makePxReady(true));
+        }
 
         //cout << ctrlr.vx() << "," << ctrlr.vy() << endl;
 
