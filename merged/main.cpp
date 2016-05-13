@@ -137,18 +137,69 @@ int main(int argc, char **argv)
 
   //for ar detection ----------------------------------------------------------
   map<int,Vector3f> AR_id;
-  Vector3f v100(-0.50, 1.69,0.0);
-  Vector3f v110( 0.00, 1.69,0.0);
-  Vector3f v120( 0.50, 1.69,0.0);
-  Vector3f v130(-0.50, 2.29,0.0);
-  Vector3f v140( 0.00, 2.29,0.0);
-  Vector3f v150( 0.50, 2.29,0.0);
-  AR_id[100] = v100;
+  Vector3f v0(-0.70, 0.56,0.0);
+  Vector3f v20(-0.35, 0.56,0.0);
+  Vector3f v40( 0.35, 0.56,0.0);
+  Vector3f v60( 0.70, 0.56,0.0);
+  
+  Vector3f v80(-0.70,  1.06,0.0);
+  Vector3f v110(-0.35, 1.06,0.0);
+  Vector3f v120( 0.35, 1.06,0.0);
+  Vector3f v130( 0.70, 1.06,0.0);
+
+  Vector3f v140(-0.70, 1.56,0.0);
+  Vector3f v160(-0.35, 1.56,0.0);
+  Vector3f v170( 0.35, 1.56,0.0); 
+  Vector3f v190( 0.70, 1.56,0.0);
+
+  Vector3f v200(-0.70, 2.06,0.0);
+  Vector3f v220(-0.35, 2.06,0.0);
+  Vector3f v230( 0.35, 2.06,0.0);
+  Vector3f v240( 0.70, 2.06,0.0);
+
+  Vector3f v250(-0.70, 2.56,0.0);
+  Vector3f v260(-0.35, 2.56,0.0);
+  Vector3f v270( 0.35, 2.56,0.0);
+  Vector3f v280( 0.70, 2.56,0.0);
+
+  Vector3f v290(-0.70, 3.06,0.0);
+  Vector3f v300(-0.35, 3.06,0.0);
+  Vector3f v310( 0.35, 3.06,0.0);
+  Vector3f v320( 0.70, 3.06,0.0);
+
+  Vector3f v330(-0.70, 3.56,0.0);
+  Vector3f v340(-0.35, 3.56,0.0);
+  Vector3f v350( 0.35, 3.56,0.0);
+  Vector3f v360( 0.70, 3.56,0.0);
+
+  AR_id[0] = v0;
+  AR_id[20]=  v20;
+  AR_id[40]=  v40;
+  AR_id[60]=  v60;
+  AR_id[80]=  v80;
   AR_id[110]=  v110;
-  AR_id[120]=  v120;
+  AR_id[120] = v120;
   AR_id[130]=  v130;
   AR_id[140]=  v140;
-  AR_id[150]=  v150;
+  AR_id[160]=  v160;
+  AR_id[170]=  v170;
+  AR_id[190]=  v190;
+  AR_id[200] = v200;
+  AR_id[220]=  v220;
+  AR_id[230]=  v230;
+  AR_id[240]=  v240;
+  AR_id[250]=  v250;
+  AR_id[260]=  v260;
+  AR_id[270] = v270;
+  AR_id[280]=  v280;
+  AR_id[290]=  v290;
+  AR_id[300]=  v300;
+  AR_id[310]=  v310;
+  AR_id[320]=  v320;
+  AR_id[330] = v330;
+  AR_id[340]=  v340;
+  AR_id[350]=  v350;
+  AR_id[360]=  v360;
   Vector3f mu,u,px_v;
   double t;
   clock_t start;
